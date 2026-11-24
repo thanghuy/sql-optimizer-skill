@@ -1,74 +1,79 @@
-# sql-optimizer — AI skill tối ưu SQL cho 10 hệ DB
+# sql-optimizer — an AI skill for SQL performance across 10 databases
 
-Skill theo chuẩn mở **Agent Skills** (`SKILL.md` + thư mục `references/`), cắm được vào Claude Code, Claude.ai / Claude Desktop, và các agent khác đọc được Markdown (Cursor, Codex, Gemini CLI, Copilot…).
+An open **Agent Skill** (`SKILL.md` + `references/`) that plugs into Claude Code, Claude.ai / Claude Desktop, and any other agent that can read Markdown instructions (Cursor, Codex, Gemini CLI, Copilot, …).
 
-Hỗ trợ: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite, IBM Db2, Snowflake, BigQuery, ClickHouse.
+Supported engines: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite, IBM Db2, Snowflake, BigQuery, ClickHouse.
 
-## Quy trình skill thực hiện
+## What the skill does
 
-| Bước | Việc làm | Vì sao |
+| Step | Action | Why |
 |---|---|---|
-| 0 | Hỏi engine + **version chính xác** | Doc và cú pháp sinh ra phải đúng version (vd `EXPLAIN (GENERIC_PLAN)` chỉ có từ PG 16) |
-| 1 | Đọc doc chính thức của đúng version | Tránh khuyên sai do kiến thức cũ |
-| 2 | Hỏi cấu trúc bảng + index hiện có | Thường nên mở rộng index cũ thay vì thêm mới |
-| 3 | Hỏi lượng data, cardinality, skew | Selectivity quyết định index có được dùng không |
-| 4 | Hỏi traffic: QPS, read/write, SLO | Cân lợi đọc vs chi phí ghi của mỗi index |
-| 5 | **Soát lỗi query** → bảng *Issues found* (vị trí, lỗi, mức độ, vì sao chậm, cách sửa) + query viết lại | Nhiều query chậm không phải do thiếu index mà do làm index vô dụng |
-| 6 | Thiết kế index theo **ESR** (Equality → Sort → Range) | Seek trên E, đọc sẵn thứ tự S, lọc R — bỏ được bước sort |
-| 7 | Xin query plan thật, phân tích, lặp lại | Chứng minh bằng số liệu trước/sau |
+| 0 | Ask for the engine and its **exact version** | Docs and generated syntax must match the version (e.g. `EXPLAIN (GENERIC_PLAN)` only exists from PostgreSQL 16) |
+| 1 | Read the official docs for that version | Avoids advice based on outdated knowledge |
+| 2 | Ask for table structure and existing indexes | Extending an existing index is often better than adding a new one |
+| 3 | Ask for data volume, cardinality and skew | Selectivity decides whether an index is used at all |
+| 4 | Ask for traffic: QPS, read/write ratio, SLO | Weighs read gains against the write cost of every index |
+| 5 | **Review the query** → *Issues found* table (location, problem, severity, why it is slow, fix) + rewritten query | Many slow queries are not missing an index — they make the index unusable |
+| 6 | Design indexes with the **ESR rule** (Equality → Sort → Range) | Seek on E, read rows already in S order, filter on R — no sort step |
+| 7 | Ask for the real query plan, analyze, iterate | Proves the change with before/after numbers |
 
-Với Snowflake / BigQuery / ClickHouse (không có B-tree), ESR được chuyển thành thứ tự partition / clustering / sort key.
+For Snowflake, BigQuery and ClickHouse (no B-tree indexes), ESR is translated into partition / clustering / sort-key order.
 
-## Cấu trúc
+## Repository layout
 
 ```
-sql-optimizer/                       # thư mục skill (cái cần cài)
-├── SKILL.md                         # quy trình chính
-├── assets/intake-template.md        # bảng câu hỏi gửi user một lần
+sql-optimizer/                       # the skill itself (this is what you install)
+├── SKILL.md                         # main workflow
+├── assets/intake-template.md        # one-message questionnaire for the user
 └── references/
-    ├── query-antipatterns.md        # danh mục lỗi query + lỗi "vô hình" (sniffing, bind type, collation, stats, FK) + những thứ trông sai nhưng ổn
-    ├── esr-rule.md                  # ESR, ngoại lệ, covering, tie-breaker, checklist trước khi DROP index
-    ├── query-plan-analysis.md       # đọc plan, red flags, so sánh trước/sau
-    └── databases/<db>.md ×10        # link doc theo version, lệnh lấy schema/index/stats/traffic/plan
+    ├── query-antipatterns.md        # query anti-patterns, "invisible" causes (parameter sniffing, bind types,
+    │                                #   collations, statistics, FKs) and things that look bad but are fine
+    ├── esr-rule.md                  # ESR, exceptions, covering indexes, tie-breakers, checklist before DROP INDEX
+    ├── query-plan-analysis.md       # reading plans, red flags, before/after comparison
+    └── databases/<db>.md ×10        # version-specific doc links, commands for schema/index/stats/traffic/plan
 
-evals/                               # 16 test case (không nằm trong gói skill)
-sql-optimizer-workspace/             # kết quả 4 vòng test + trang review HTML
+sql-optimizer.skill                  # packaged skill (zip) for Claude.ai / Claude Desktop upload
+evals/                               # 16 test cases (not part of the installed skill)
+sql-optimizer-workspace/             # results of 4 benchmark rounds + static HTML review pages
 ```
 
-## Cài đặt
+## Installation
 
-**Claude Code** (dùng cho mọi project):
+**Claude Code** (all projects):
 ```bash
-cp -r sql-optimizer ~/.claude/skills/
+git clone https://github.com/thanghuy/sql-optimizer-skill.git
+cp -r sql-optimizer-skill/sql-optimizer ~/.claude/skills/
 ```
-Hoặc chỉ cho một project: copy vào `<project>/.claude/skills/`.
+For a single project, copy it into `<project>/.claude/skills/` instead.
 
-**Claude.ai / Claude Desktop**: Settings → Capabilities → Skills → Upload, chọn `sql-optimizer.skill`.
+**Claude.ai / Claude Desktop**: Settings → Capabilities → Skills → Upload, then choose `sql-optimizer.skill`.
 
-**Agent khác (Cursor, Codex, Gemini CLI, Copilot…)**: copy thư mục `sql-optimizer` vào repo và thêm vào `AGENTS.md` / rules file:
+**Other agents (Cursor, Codex, Gemini CLI, Copilot, …)**: copy the `sql-optimizer` folder into your repo and add this to `AGENTS.md` or your rules file:
 ```
 For any SQL performance, slow query, query review, index or EXPLAIN task, follow sql-optimizer/SKILL.md
 and read the referenced files it points to.
 ```
 
-## Kết quả test (4 vòng, có skill vs không skill)
+## Benchmark results (4 rounds, with skill vs. without skill)
 
-| Vòng | Nội dung | Có skill | Không skill |
+| Round | Focus | With skill | Without skill |
 |---|---|---|---|
-| 1 | Thiết kế index, 4 DB | 32/33 | 32/33 |
-| 2 | Tiêu chí siết + version (6 case) | **52/52** | 46/52 |
-| 3 | Lỗi query cài sẵn + query sạch | 42/42 | 42/42 |
-| 4 | Lỗi khó: sniffing, bind type, collation, FK, stats | **40/40** | 36/40 |
+| 1 | Index design, 4 databases | 32/33 | 32/33 |
+| 2 | Stricter assertions + version handling (6 cases) | **52/52** | 46/52 |
+| 3 | Planted query anti-patterns + a clean query | 42/42 | 42/42 |
+| 4 | Hard cases: parameter sniffing, bind types, collations, FK-backing indexes, correlated statistics | **40/40** | 36/40 |
 
-Model gốc đã có kiến thức DB tốt; giá trị đo được của skill là **kỷ luật quy trình**: hỏi đủ traffic/data, ghi version tối thiểu cho tính năng, index khớp ORDER BY + tie-breaker, bảng lỗi có mức độ, tự kiểm tra con số. Đổi lại mỗi lượt chậm hơn ~45–55s và tốn thêm ~20–30k token.
+The recorded runs in `sql-optimizer-workspace/` are kept exactly as produced. Two MySQL cases were originally asked in Vietnamese (to test that the skill replies in the user's language), so those recorded prompts and responses are in Vietnamese; the prompts in `evals/` are now in English.
 
-## Dùng thử
+The base model already knows databases well. The measurable value of the skill is **process discipline**: it asks for traffic and data volume, tags features with their minimum version, keeps the index consistent with the final `ORDER BY` (including tie-breakers), reports issues in a table with explicit severity, and sanity-checks numbers. The trade-off is roughly 45–55 s and 20–30k extra tokens per run.
 
-> Query này chạy 3s trên MySQL 8.0, bảng orders 50 triệu dòng:
+## Example
+
+> This query takes 3 s on MySQL 8.0, and `orders` has 50 million rows:
 > `SELECT * FROM orders WHERE customer_id = 42 AND created_at > '2026-01-01' ORDER BY total DESC LIMIT 20`
 
-Agent sẽ soát lỗi query ngay, hỏi cấu trúc bảng/index/data/traffic, đề xuất index theo ESR (hoặc E-R-S tuỳ selectivity), rồi xin `EXPLAIN ANALYZE` để kiểm chứng.
+The agent reviews the query right away, asks for the table structure, indexes, data volume and traffic, proposes an ESR index (or E-R-S depending on selectivity), and then asks for `EXPLAIN ANALYZE` to verify.
 
 ## License
 
-[MIT](LICENSE) — tự do dùng, sửa, phân phối lại, kể cả cho mục đích thương mại, miễn giữ lại thông báo bản quyền.
+[MIT](LICENSE) — free to use, modify and redistribute, including commercially, as long as the copyright notice is kept.
