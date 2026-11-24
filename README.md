@@ -1,5 +1,8 @@
 # sql-optimizer — an AI skill for SQL performance across 10 databases
 
+[![Release](https://img.shields.io/github/v/release/thanghuy/sql-optimizer-skill)](https://github.com/thanghuy/sql-optimizer-skill/releases/latest)
+[![License: MIT](https://img.shields.io/github/license/thanghuy/sql-optimizer-skill)](LICENSE)
+
 An open **Agent Skill** (`SKILL.md` + `references/`) that plugs into Claude Code, Claude.ai / Claude Desktop, and any other agent that can read Markdown instructions (Cursor, Codex, Gemini CLI, Copilot, …).
 
 Supported engines: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite, IBM Db2, Snowflake, BigQuery, ClickHouse.
