@@ -68,3 +68,7 @@ Model gốc đã có kiến thức DB tốt; giá trị đo được của skill
 > `SELECT * FROM orders WHERE customer_id = 42 AND created_at > '2026-01-01' ORDER BY total DESC LIMIT 20`
 
 Agent sẽ soát lỗi query ngay, hỏi cấu trúc bảng/index/data/traffic, đề xuất index theo ESR (hoặc E-R-S tuỳ selectivity), rồi xin `EXPLAIN ANALYZE` để kiểm chứng.
+
+## License
+
+[MIT](LICENSE) — tự do dùng, sửa, phân phối lại, kể cả cho mục đích thương mại, miễn giữ lại thông báo bản quyền.
