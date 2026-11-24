@@ -2,3 +2,8 @@
 __pycache__/
 *.pyc
 feedback.json
+
+# Local installs made by `npx skills add` while testing inside this repo
+.claude/
+.agents/
+skills-lock.json
