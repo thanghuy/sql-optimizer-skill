@@ -1,0 +1,16 @@
+{
+  "eval_name": "postgres13-version-syntax",
+  "prompt": "Postgres 13, self-hosted, and we can't upgrade this year. This query comes from our Java service via JDBC prepared statements:\n\nSELECT id, status, total\nFROM orders\nWHERE region = ? AND status IN ('NEW','PAID') AND created_at > now() - interval '1 day'\nORDER BY created_at DESC\nLIMIT 50;\n\norders has 80M rows, 12 regions, NEW+PAID are ~3% of all rows, ~20k new orders/day per region. ~400 QPS on this query, ~300 inserts/sec, each order's status is updated 1-2 times.\nExisting indexes: orders_pkey (id), idx_orders_region (region), idx_orders_created (created_at).\n\nWhat index should I add, and how do I see the plan the app actually gets (not just what psql shows me)?",
+  "assertions": [
+    "The recommended index has region first and created_at (DESC) right after it, with status handled by a partial index predicate (WHERE status IN ('NEW','PAID')) or placed after created_at",
+    "The response explains why status IN ('NEW','PAID') should not sit between region and created_at (multi-value IN breaks the order / forces a sort), or why a partial index removes it from the key",
+    "The response does not present EXPLAIN (GENERIC_PLAN) as available on PostgreSQL 13; if mentioned, it is flagged as PostgreSQL 16+ only",
+    "The response gives a PostgreSQL 13-valid way to see the app's real plan: PREPARE/EXECUTE 6+ times, SET plan_cache_mode = force_generic_plan, and/or auto_explain with log_analyze",
+    "The response mentions JDBC server-side prepare behavior (prepareThreshold, default 5) or otherwise explains when the driver switches to a server-prepared / generic plan",
+    "The response does not rely on B-tree skip scan (PostgreSQL 18+) for the recommendation",
+    "The response uses CREATE INDEX CONCURRENTLY",
+    "The response addresses write cost given ~300 inserts/sec and 1-2 status updates per order (e.g. partial index entries added/removed on status change, HOT updates)",
+    "The response addresses the existing idx_orders_region / idx_orders_created (redundant or to evaluate dropping)",
+    "The response gives EXPLAIN (ANALYZE, BUFFERS) and describes what a good plan looks like (no Sort, index scan feeding Limit)"
+  ]
+}

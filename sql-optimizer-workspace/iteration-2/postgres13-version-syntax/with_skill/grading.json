@@ -1,0 +1,61 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has region first and created_at (DESC) right after it, with status handled by a partial index predicate (WHERE status IN ('NEW','PAID')) or placed after created_at",
+      "passed": true,
+      "evidence": "'CREATE INDEX CONCURRENTLY idx_orders_open_region_created ON orders (region, created_at DESC) WHERE status IN (''NEW'', ''PAID'')'"
+    },
+    {
+      "text": "The response explains why status IN ('NEW','PAID') should not sit between region and created_at (multi-value IN breaks the order / forces a sort), or why a partial index removes it from the key",
+      "passed": true,
+      "evidence": "'rows come back as all NEW, then all PAID, not in global created_at DESC order. So PG 13 must ... run a top-N Sort' and partial predicate folds status out of the key"
+    },
+    {
+      "text": "The response does not present EXPLAIN (GENERIC_PLAN) as available on PostgreSQL 13; if mentioned, it is flagged as PostgreSQL 16+ only",
+      "passed": true,
+      "evidence": "'not available on 13: EXPLAIN (GENERIC_PLAN) (added in 16)'"
+    },
+    {
+      "text": "The response gives a PostgreSQL 13-valid way to see the app's real plan: PREPARE/EXECUTE 6+ times, SET plan_cache_mode = force_generic_plan, and/or auto_explain with log_analyze",
+      "passed": true,
+      "evidence": "PREPARE + 'SET plan_cache_mode = force_generic_plan' + auto_explain with log_analyze"
+    },
+    {
+      "text": "The response mentions JDBC server-side prepare behavior (prepareThreshold, default 5) or otherwise explains when the driver switches to a server-prepared / generic plan",
+      "passed": true,
+      "evidence": "'pgJDBC switches to a named server-side prepared statement after prepareThreshold executions (default 5)'"
+    },
+    {
+      "text": "The response does not rely on B-tree skip scan (PostgreSQL 18+) for the recommendation",
+      "passed": true,
+      "evidence": "'B-tree skip scan (added in 18). So I won't rely on either'"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY",
+      "passed": true,
+      "evidence": "CREATE INDEX CONCURRENTLY used for both options"
+    },
+    {
+      "text": "The response addresses write cost given ~300 inserts/sec and 1-2 status updates per order (e.g. partial index entries added/removed on status change, HOT updates)",
+      "passed": true,
+      "evidence": "'HOT updates (the real trade-off) ... an UPDATE that changes status can no longer be a HOT update' and insert cost ~300/s"
+    },
+    {
+      "text": "The response addresses the existing idx_orders_region / idx_orders_created (redundant or to evaluate dropping)",
+      "passed": true,
+      "evidence": "'Cleanup': drop idx_orders_region if unused; 'Keep idx_orders_created unless ... unused'"
+    },
+    {
+      "text": "The response gives EXPLAIN (ANALYZE, BUFFERS) and describes what a good plan looks like (no Sort, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "'EXPLAIN (ANALYZE, BUFFERS, SETTINGS) EXECUTE q(''EU'')' and good plan 'Limit -> Index Scan ... There should be no Sort node'"
+    }
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims checked: PG13 EOL Nov 2025 (correct); plan_cache_mode since 12 (correct); log_parameter_max_length new in 13 (correct); pg_stat_statements mean_exec_time is the PG13 column name (correct)."
+}

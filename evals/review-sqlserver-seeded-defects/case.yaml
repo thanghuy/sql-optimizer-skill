@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: review-sqlserver-seeded-defects
+expected_outcome: |
+  Finds DISTINCT over join fan-out, varchar/nvarchar join conversion, ISNULL on column, YEAR() on column, COUNT(*) > 0; does not falsely flag LIKE @search + '%'; suggests join on UserId / supporting index; rewritten query.

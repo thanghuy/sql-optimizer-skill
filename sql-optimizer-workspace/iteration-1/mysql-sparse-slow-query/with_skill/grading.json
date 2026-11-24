@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MySQL version",
+      "passed": true,
+      "evidence": "Asks 'Version: `SELECT VERSION();`. Có phải RDS hoặc Aurora không?'"
+    },
+    {
+      "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+      "passed": true,
+      "evidence": "Asks for 'Cấu trúc và index hiện có' with `SHOW CREATE TABLE orders\\G` and `SHOW INDEX FROM orders;`"
+    },
+    {
+      "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+      "passed": true,
+      "evidence": "Asks for table_rows from information_schema, `SELECT COUNT(*) FROM orders WHERE shop_id = 1207;` and status distribution via GROUP BY status"
+    },
+    {
+      "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+      "passed": true,
+      "evidence": "Traffic section: 'Query này chạy bao nhiêu lần/giây...' and 'Bảng `orders` có bao nhiêu insert/update mỗi giây?'"
+    },
+    {
+      "text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)",
+      "passed": true,
+      "evidence": "Proposes `(shop_id, created_at, id, status, total, order_no)` and explains the trade-off vs `(shop_id, status, created_at, ...)` when paid+shipped is rare"
+    },
+    {
+      "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+      "passed": true,
+      "evidence": "'`status IN ('paid','shipped')` làm mất thứ tự sort... MySQL không merge 2 khoảng theo thứ tự được... rồi **filesort**'"
+    },
+    {
+      "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+      "passed": true,
+      "evidence": "Section '2. Sửa query: bỏ `OFFSET`, dùng keyset pagination' with seek predicate on (created_at, id)"
+    },
+    {
+      "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+      "passed": true,
+      "evidence": "Kiểm chứng section: EXPLAIN FORMAT=TREE and EXPLAIN ANALYZE 'Trước và sau khi tạo index', with expected plan (no Using filesort)"
+    },
+    {
+      "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+      "passed": true,
+      "evidence": "`ADD INDEX ... ALGORITHM=INPLACE, LOCK=NONE`; 'Bảng rất lớn thì dùng `gh-ost` / `pt-online-schema-change`'"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none"
+}

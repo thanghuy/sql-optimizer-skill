@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: sqlserver-plan-reanalysis
+expected_outcome: |
+  Diagnoses range-before-sort (Sort + spill), proposes (AssigneeId, Priority DESC, CreatedAt DESC), handles Key Lookups with explicit reasoning, explains the estimate gap with 2019-valid options, asks for a new actual plan.

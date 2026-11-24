@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags DATE(o.created_at) = '2026-11-01' as preventing use of idx_created and rewrites it as a half-open range on created_at",
+      "passed": true,
+      "evidence": "Table #2: `DATE(o.created_at) = '2026-11-01'` 'Index trên created_at không seek được' -> 'o.created_at >= '2026-11-01' AND o.created_at < '2026-11-02''"
+    },
+    {
+      "text": "The response flags o.phone = 0912345678 (number vs VARCHAR column) as an implicit cast of the column that prevents use of idx_phone, and fixes it by quoting the value",
+      "passed": true,
+      "evidence": "Table #1: `o.phone = 0912345678` 'Cột bị cast từng dòng sang double nên idx_phone không dùng được' ; fix `o.phone = '0912345678'`"
+    },
+    {
+      "text": "The response points out that comparing phone as a number loses the leading zero / can match wrong rows (a correctness problem, not only speed)",
+      "passed": true,
+      "evidence": "'Số 0912345678 cũng mất số 0 đầu ... sẽ khớp nhầm các chuỗi như '912345678', '00912345678'...' and 'Sai cả kết quả'"
+    },
+    {
+      "text": "The response flags LIKE '%@gmail.com' as a leading wildcard that cannot use an index and proposes an alternative (e.g. stored/indexed email domain column, reversed column, full-text)",
+      "passed": true,
+      "evidence": "Table #5: 'Wildcard đầu + OR khác cột ... Tự nó không index được'; alternative given conditionally: 'cột email_domain generated + index' (while arguing it is unnecessary after phone seek)"
+    },
+    {
+      "text": "The response flags the OR between customer_email and coupon_code as preventing a single index range scan and proposes UNION / UNION ALL or explains index-merge behavior",
+      "passed": true,
+      "evidence": "Diagnosis: 'có wildcard ở đầu, lại OR với cột khác, nên không thể index merge. idx_coupon cũng không dùng được' (index-merge behaviour explained)"
+    },
+    {
+      "text": "The response flags ORDER BY RAND() as generating and sorting a value for every matching row and proposes an alternative",
+      "passed": true,
+      "evidence": "Table #3: 'Sinh RAND() cho mọi dòng khớp rồi filesort toàn bộ' -> 'ORDER BY o.created_at DESC, o.id DESC'"
+    },
+    {
+      "text": "The response flags SELECT * as reading the TEXT/JSON columns (note, payload) unnecessarily and proposes listing columns",
+      "passed": true,
+      "evidence": "Table #4: 'Đọc cả note TEXT, payload JSON ... off-page' -> lists `id, phone, customer_email, coupon_code, total, created_at`"
+    },
+    {
+      "text": "The response gives a full rewritten query that quotes the phone value and uses a range on created_at",
+      "passed": true,
+      "evidence": "Rewritten query has `o.phone = '0912345678'` and `o.created_at >= '2026-11-01' AND o.created_at < '2026-11-02'`"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "'Issues found' table with Severity column (High/High/Medium/Medium/Low) and a Fix column per row"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims checked (string-to-double cast blocks index, '0912345678abc'/' 912345678' coerce to 912345678, InnoDB PK appended to secondary index, INVISIBLE index on 8.0) are correct."
+}

@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The response states clearly that the query is already well optimized / has no significant performance problems",
+      "passed": true,
+      "evidence": "'I don't see a performance problem. Ship it as is.'"
+    },
+    {
+      "text": "The response supports that conclusion with evidence from the given plan (index scan on posts_author_created_id_idx, no Sort node, ~24 buffers or ~0.09 ms)",
+      "passed": true,
+      "evidence": "'the row comparison as an Index Cond (it does, look at the plan)'; 'No sort node'; '24 buffers ... and 0.09 ms'"
+    },
+    {
+      "text": "The response does not recommend creating a new index or changing the existing one as necessary",
+      "passed": true,
+      "evidence": "'Nothing to change in the SQL or the index'; INCLUDE (title) 'Probably not worth it'"
+    },
+    {
+      "text": "The response does not claim that the row comparison (created_at, id) < ($2, $3) prevents index use",
+      "passed": true,
+      "evidence": "'Postgres can use the row comparison as an Index Cond'"
+    },
+    {
+      "text": "The response does not label any finding as High severity or as a must-fix problem",
+      "passed": true,
+      "evidence": "No severity labels; checks framed as 'correctness and ops, not query rewrites'"
+    },
+    {
+      "text": "The response does not propose rewriting the query's WHERE or ORDER BY clauses as necessary (optional, clearly-marked suggestions are acceptable)",
+      "passed": true,
+      "evidence": "'Things I'd check (correctness and ops, not query rewrites)'; first-page separate query is an app-side suggestion"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "Minor: 'You won't get the custom plan good, generic plan bad flip' is stated with more certainty than warranted for a 400k-row skewed author, but likely true here. No false positives."
+}

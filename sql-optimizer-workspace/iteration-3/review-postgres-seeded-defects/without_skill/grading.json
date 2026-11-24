@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags the two correlated subqueries on orders as executing per customer row and rewrites them as a single aggregation (join to a GROUP BY subquery, or LATERAL)",
+      "passed": true,
+      "evidence": "Section 3: 'run twice for every customer row it's evaluated for'; 'merge the two subqueries into one LATERAL'; rewrite uses CROSS JOIN LATERAL aggregate"
+    },
+    {
+      "text": "The response points out that orders.customer_id has no index and recommends one (e.g. (customer_id) or (customer_id, created_at))",
+      "passed": true,
+      "evidence": "`CREATE INDEX CONCURRENTLY orders_customer_created_idx ON orders (customer_id, created_at);`"
+    },
+    {
+      "text": "The response explains that NOT IN (SELECT customer_id FROM blacklist) with a nullable customer_id makes the query return no rows when any NULL exists, and replaces it with NOT EXISTS",
+      "passed": true,
+      "evidence": "Section 1: 'When the subquery returns even one NULL ... no rows ever pass' -> `AND NOT EXISTS (SELECT 1 FROM blacklist b WHERE b.customer_id = c.id)`"
+    },
+    {
+      "text": "The response flags lower(c.email) = lower($1) as unable to use an index without an expression index and recommends CREATE INDEX ... (lower(email)) or citext",
+      "passed": true,
+      "evidence": "Section 2: 'lower(c.email) = lower($1) can't use any index' -> `CREATE INDEX CONCURRENTLY customers_lower_email_idx ON customers (lower(email), ...)`; mentions citext"
+    },
+    {
+      "text": "The response flags OFFSET 50000 as reading and discarding rows and recommends keyset pagination (or questions why it is needed)",
+      "passed": true,
+      "evidence": "Section 4: 'PostgreSQL produces and discards 50,000 rows to return 20 ... Switch to keyset (seek) pagination'"
+    },
+    {
+      "text": "The response notices that the email equality filter returns at most a few customers, so ORDER BY created_at with OFFSET 50000 is suspicious (likely a bug or returns nothing)",
+      "passed": true,
+      "evidence": "'A logic question': 'lower(email) = lower($1) normally matches one customer ... Combined with OFFSET 50000, that almost always returns an empty page'"
+    },
+    {
+      "text": "The response gives a full rewritten query applying the fixes",
+      "passed": true,
+      "evidence": "'Suggested rewrite' gives full query"
+    },
+    {
+      "text": "Every DDL and syntax in the response is valid on PostgreSQL 16 (e.g. CREATE INDEX CONCURRENTLY, LATERAL, NOT EXISTS), with nothing that needs a newer version",
+      "passed": true,
+      "evidence": "CONCURRENTLY, CROSS JOIN LATERAL, NOT EXISTS, row comparison, $2::timestamptz cast — all valid on PG16"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "Numbered sections each with **Fix**, plus explicit 'Priority order' list 1-5 mapping each issue"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Rewrite uses a catch-all `($2::timestamptz IS NULL OR ...)` but the response itself flags the generic-plan risk."
+}

@@ -1,0 +1,14 @@
+{
+  "eval_name": "bigquery-columnar-tuning",
+  "prompt": "our bigquery bill exploded, this dashboard query scans ~2.3 TB every time it runs (looker refreshes it every 15 min). table is `analytics.events`, ~9 billion rows, not partitioned, not clustered. columns: event_id STRING, event_ts TIMESTAMP, project_id STRING, user_id STRING, event_name STRING, country STRING, properties JSON.\n\nSELECT event_name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS users\nFROM analytics.events\nWHERE project_id = 'prj_8812'\n  AND DATE(event_ts) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()\nGROUP BY event_name\nORDER BY n DESC;\n\nwe have ~300 projects, almost every query filters on project_id and a time window. what index should i add?",
+  "assertions": [
+    "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+    "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+    "The response recommends clustering with project_id as the first clustering column",
+    "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)",
+    "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+    "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after",
+    "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh",
+    "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "eval_name": "review-postgres-seeded-defects",
+  "prompt": "PostgreSQL 16. This admin report endpoint got slow as data grew (customers 4M rows, orders 60M rows, blacklist 20k rows). Can you review the query and tell me what's wrong?\n\nTables:\ncustomers(id bigint PK, name text, email text, created_at timestamptz)  -- indexes: PK only, plus customers_created_idx (created_at)\norders(id bigint PK, customer_id bigint, total numeric, created_at timestamptz)  -- indexes: PK only\nblacklist(customer_id bigint NULL, reason text)  -- no indexes; customer_id is sometimes NULL for blocked emails\n\nSELECT c.id, c.name,\n       (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) AS order_count,\n       (SELECT MAX(o.created_at) FROM orders o WHERE o.customer_id = c.id) AS last_order_at\nFROM customers c\nWHERE c.id NOT IN (SELECT customer_id FROM blacklist)\n  AND lower(c.email) = lower($1)\nORDER BY c.created_at DESC\nOFFSET 50000 LIMIT 20;",
+  "assertions": [
+    "The response flags the two correlated subqueries on orders as executing per customer row and rewrites them as a single aggregation (join to a GROUP BY subquery, or LATERAL)",
+    "The response points out that orders.customer_id has no index and recommends one (e.g. (customer_id) or (customer_id, created_at))",
+    "The response explains that NOT IN (SELECT customer_id FROM blacklist) with a nullable customer_id makes the query return no rows when any NULL exists, and replaces it with NOT EXISTS",
+    "The response flags lower(c.email) = lower($1) as unable to use an index without an expression index and recommends CREATE INDEX ... (lower(email)) or citext",
+    "The response flags OFFSET 50000 as reading and discarding rows and recommends keyset pagination (or questions why it is needed)",
+    "The response notices that the email equality filter returns at most a few customers, so ORDER BY created_at with OFFSET 50000 is suspicious (likely a bug or returns nothing)",
+    "The response gives a full rewritten query applying the fixes",
+    "Every DDL and syntax in the response is valid on PostgreSQL 16 (e.g. CREATE INDEX CONCURRENTLY, LATERAL, NOT EXISTS), with nothing that needs a newer version",
+    "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix"
+  ]
+}

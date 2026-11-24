@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MySQL version",
+      "passed": true,
+      "evidence": "Item 3: 'Phiên bản MySQL (`SELECT VERSION();`)'"
+    },
+    {
+      "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+      "passed": true,
+      "evidence": "Item 1: '`SHOW CREATE TABLE orders;` (để xem index hiện có)'"
+    },
+    {
+      "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+      "passed": true,
+      "evidence": "Item 4: 'Bảng có khoảng bao nhiêu dòng, shop 1207 có bao nhiêu đơn từ 01/10' and item 5 status GROUP BY distribution"
+    },
+    {
+      "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+      "passed": false,
+      "evidence": "No question about query frequency or write rate on orders; item 6 asks only about page-jump vs next/prev API behaviour. Write cost is mentioned only as 'làm ghi chậm hơn một chút'"
+    },
+    {
+      "text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)",
+      "passed": true,
+      "evidence": "Recommends `(shop_id, created_at, status)` with explicit rationale vs `(shop_id, status, created_at)` and the rare-status exception"
+    },
+    {
+      "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+      "passed": true,
+      "evidence": "'Nếu `status` đứng trước `created_at` thì MySQL phải quét 2 khoảng riêng... **phải gom hết các dòng khớp rồi filesort**'"
+    },
+    {
+      "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+      "passed": true,
+      "evidence": "'Cách B: keyset / seek pagination (tốt nhất, nhưng phải sửa API)' plus explanation that OFFSET reads 2050 rows"
+    },
+    {
+      "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+      "passed": true,
+      "evidence": "'Kiểm tra trước và sau bằng: EXPLAIN SELECT ...; EXPLAIN ANALYZE SELECT ...; -- MySQL 8.0.18+'"
+    },
+    {
+      "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+      "passed": true,
+      "evidence": "'`ALGORITHM=INPLACE, LOCK=NONE`... cân nhắc `gh-ost` hoặc `pt-online-schema-change`'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 1,
+    "total": 9,
+    "pass_rate": 0.889
+  },
+  "overall_notes": "Deferred join and keyset queries use `ORDER BY created_at DESC, id DESC`, but the recommended index is (shop_id, created_at, status) with implicit PK id after status. Because status (IN, two values) sits between created_at and id, the index order is not (created_at, id), so the response's claim that the subquery 'chỉ chạm index' with no sort is not guaranteed; ties within the same created_at would need a filesort. The with_skill response avoids this by putting id directly after created_at."
+}

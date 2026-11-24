@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: review-postgres-seeded-defects
+expected_outcome: |
+  Finds correlated subqueries, missing orders.customer_id index, NOT IN with nullable column (returns no rows), lower(email) without expression index, OFFSET 50000; notices the email filter makes OFFSET/ORDER BY nonsensical; rewritten query.

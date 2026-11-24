@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+      "passed": true,
+      "evidence": "'The index is keyed `(AssigneeId, CreatedAt, Priority)`... rows come out ordered by `CreatedAt`. The query wants them ordered by `Priority DESC, CreatedAt DESC`'"
+    },
+    {
+      "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+      "passed": true,
+      "evidence": "`ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)`"
+    },
+    {
+      "text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup",
+      "passed": true,
+      "evidence": "`INCLUDE (Subject)`; '`INCLUDE (Subject)` removes the Key Lookup'"
+    },
+    {
+      "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+      "passed": true,
+      "evidence": "'The optimizer estimated 1,850 rows and got 41,233... Parameter sniffing... Stale or low-sample statistics'"
+    },
+    {
+      "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since",
+      "passed": true,
+      "evidence": "Caveat: residual predicate is cheap only if the top-priority bucket has >=20 tickets since @Since, else 'the scan walks through all of those old rows'; Step 2 'at most 20 × (number of priorities)'"
+    },
+    {
+      "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+      "passed": true,
+      "evidence": "Step 3: check usage DMV and Query Store; 'If only this query used it, drop it'"
+    },
+    {
+      "text": "The response mentions building online (ONLINE = ON) and/or its edition requirement",
+      "passed": true,
+      "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise edition`"
+    },
+    {
+      "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+      "passed": true,
+      "evidence": "Step 4: 'Run the query for your busiest agent with `SET STATISTICS IO, TIME ON` and the actual plan... Logical reads in the tens, not hundreds of thousands'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "Minor arithmetic inconsistency: '312 ms × 5/sec ≈ 1.5 s of CPU per second' is described as 'a full CPU core' (it is ~1.5 cores). Attributing the elapsed/CPU gap mainly to the spill is speculative. No SQL errors."
+}

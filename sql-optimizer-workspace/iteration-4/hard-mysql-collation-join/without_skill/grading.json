@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies the charset/collation mismatch (users.email utf8mb3_general_ci vs leads.email utf8mb4_0900_ai_ci) as the reason uq_users_email cannot be used for the join",
+      "passed": true,
+      "evidence": "Table of charset/collation; 'it converts the utf8mb3 side (users) ... uq_users_email is sorted by utf8mb3_general_ci values... the index can't be used for lookups.'"
+    },
+    {
+      "text": "The response's main fix is converting users.email to the same charset and collation as leads.email (ALTER TABLE ... MODIFY / CONVERT TO), and it says another index on users.email would not help",
+      "passed": true,
+      "evidence": "'Fix 2 (the right long-term fix): give both columns the same charset and collation' ALTER TABLE users MODIFY ... utf8mb4_0900_ai_ci; 'Another index on users.email: it would have the same collation, so the same thing happens.'"
+    },
+    {
+      "text": "The response gives at least one caveat for the conversion on 6M rows (online DDL / gh-ost / pt-osc, unique index rebuild, possible new duplicates under the new collation, or index key length)",
+      "passed": true,
+      "evidence": "'ALGORITHM=COPY and blocks writes ... use gh-ost or pt-online-schema-change'; 'The unique key could break' duplicate check; index size note."
+    },
+    {
+      "text": "The response does not flag l.created_at > NOW() - INTERVAL 7 DAY as a performance problem",
+      "passed": true,
+      "evidence": "The created_at predicate is never flagged; it is used unchanged in all rewrites."
+    },
+    {
+      "text": "The response says rewriting as a subquery would not fix the problem (or does not recommend it as the fix)",
+      "passed": true,
+      "evidence": "'Subquery (WHERE l.email IN (SELECT email FROM users) or EXISTS): the comparison still mixes the two collations, so the optimizer is stuck the same way.'"
+    },
+    {
+      "text": "The response offers a short-term workaround that converts the leads side so the users index can be used (e.g. CONVERT(l.email USING utf8mb3) or an explicit COLLATE) and notes its caveat (lossy for 4-byte characters / collation semantics)",
+      "passed": true,
+      "evidence": "Fix 1: CONVERT(l.email USING utf8mb3) COLLATE utf8mb3_general_ci with caveats 'Matching rules change slightly' and '4-byte characters are lost'."
+    },
+    {
+      "text": "The response says what the fixed EXPLAIN should show for u (type eq_ref or ref, key uq_users_email)",
+      "passed": true,
+      "evidence": "'Now u should show type = eq_ref with key = uq_users_email.'"
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": false,
+      "evidence": "No explicit severity labels; only fixes ordered as Fix 1 / Fix 2 / Recommendation steps."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none. The 4-byte detection query is correct; ordering presents the CONVERT rewrite first but clearly labels the ALTER as the right long-term fix."
+}

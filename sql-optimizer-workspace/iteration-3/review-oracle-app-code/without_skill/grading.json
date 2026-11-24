@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies the per-order query inside the loop as an N+1 pattern (about 5,000 extra round trips) and replaces it with a single join or a batched IN / array query",
+      "passed": true,
+      "evidence": "Section 2: 'one SELECT ... per order, so about 5,000 round trips' -> 'One set-based query'; ITEMS_SQL joins orders once"
+    },
+    {
+      "text": "The response flags string-concatenated literals as preventing cursor sharing (hard parses) and recommends bind variables",
+      "passed": true,
+      "evidence": "Section 2: 'every statement is new to Oracle and gets hard parsed'; Section 4: 'Bind variables fix both the injection risk and the hard-parse problem'"
+    },
+    {
+      "text": "The response mentions SQL injection risk from concatenating values into SQL",
+      "passed": true,
+      "evidence": "Section 4: 'an open door for SQL injection'"
+    },
+    {
+      "text": "The response flags TO_CHAR(order_date, 'YYYY-MM-DD') = '...' as preventing use of the order_date index and rewrites it as a date range (order_date >= :d AND order_date < :d + 1)",
+      "passed": true,
+      "evidence": "Section 1: 'Oracle can't do a range scan on the order_date index' -> `order_date >= :day_start AND order_date < :day_start + 1`"
+    },
+    {
+      "text": "The response flags ext_ref = <number> on a VARCHAR2 column as an implicit TO_NUMBER(ext_ref) that prevents index use (and can raise ORA-01722), and fixes it by binding the value as a string",
+      "passed": true,
+      "evidence": "Section 3: 'it converts the column: TO_NUMBER(ext_ref) = 12345. The index on ext_ref can't be used ... ORA-01722' -> `ext_ref = :ref`, ref=str(ref)"
+    },
+    {
+      "text": "The response flags SELECT * and recommends listing only needed columns",
+      "passed": true,
+      "evidence": "Section 5: 'SELECT *. List the columns you actually export'"
+    },
+    {
+      "text": "The response mentions fetch tuning or streaming (cursor.arraysize / prefetchrows, or iterating instead of fetchall on large results)",
+      "passed": true,
+      "evidence": "Section 5: 'Raise cursor.arraysize (and prefetchrows) ... Iterate over the cursor'; rewrite sets arraysize/prefetchrows = 5000"
+    },
+    {
+      "text": "The response gives rewritten Python code using bind variables and a single query for orders with their items",
+      "passed": true,
+      "evidence": "Rewrite binds day_start/ref and uses one ITEMS_SQL for all items (2 statements total). Same interpretation as with_skill."
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "Sections 'in rough order of likely impact' (1-4 plus 'Smaller things'), each with its own fix (priority by order, no severity labels)"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Speculation about order_items.order_id type is framed as a question, not a finding."
+}

@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+      "passed": true,
+      "evidence": "Index (tenant_id, is_active, updated_at DESC, id DESC, price): equality cols, then updated_at DESC, price after as key (R)"
+    },
+    {
+      "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+      "passed": true,
+      "evidence": "is_active as equality key column; 'Why not a partial index (... WHERE is_active)?' explains 85% active saves ~15% and key form lets dropping idx_products_tenant"
+    },
+    {
+      "text": "The response quantifies ESR vs E-R-S for the biggest tenant (approximate index entries read in each case, using the given 6M / 85% / 30% figures)",
+      "passed": true,
+      "evidence": "'ESR: about 24 / 0.30 ≈ 80 index entries read' vs 'E-R-S for the biggest tenant: about 5.1M × 0.30 ≈ 1.5M rows read and sorted'"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY and mentions checking for an INVALID index if the build fails",
+      "passed": true,
+      "evidence": "'CREATE INDEX CONCURRENTLY ...' and 'If the build fails, it leaves an INVALID index behind. Check with ... WHERE NOT indisvalid'"
+    },
+    {
+      "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+      "passed": true,
+      "evidence": "'Writes: ... Your price updates are already non-HOT, because price is indexed ... Adding updated_at to an index ... about 170/s'"
+    },
+    {
+      "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+      "passed": true,
+      "evidence": "'3. Clean up the now-redundant index' drop idx_products_tenant; 'Leave idx_products_price alone unless its idx_scan stays at 0'"
+    },
+    {
+      "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "'EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)' plus good plan: 'Limit -> Index Scan ...', 'No Sort node'"
+    },
+    {
+      "text": "The response gives a PG16-valid way to check the generic plan of the prepared statement (EXPLAIN (GENERIC_PLAN), plan_cache_mode, or PREPARE/EXECUTE)",
+      "passed": true,
+      "evidence": "'EXPLAIN (GENERIC_PLAN)' labelled 'PG 16+', plus plan_cache_mode = force_custom_plan option"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims checked: price as trailing key appears in Index Cond (correct); partial index matchable in generic plan with literal true (correct); dedup ineffective with unique id in key (correct)."
+}

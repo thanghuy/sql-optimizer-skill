@@ -1,0 +1,41 @@
+{
+  "expectations": [
+    {
+      "text": "The response states clearly that the query is already well optimized / has no significant performance problems",
+      "passed": true,
+      "evidence": "'this query is ready to ship as it is ... I have no performance changes to recommend'"
+    },
+    {
+      "text": "The response supports that conclusion with evidence from the given plan (index scan on posts_author_created_id_idx, no Sort node, ~24 buffers or ~0.09 ms)",
+      "passed": true,
+      "evidence": "Cites 'Index Scan using posts_author_created_id_idx', both conditions under Index Cond, 'There is no Sort node', '24 buffers ... in 0.09 ms'"
+    },
+    {
+      "text": "The response does not recommend creating a new index or changing the existing one as necessary",
+      "passed": true,
+      "evidence": "'Keep the existing index ... No new index is needed'; 'I do not recommend a covering index'"
+    },
+    {
+      "text": "The response does not claim that the row comparison (created_at, id) < ($2, $3) prevents index use",
+      "passed": true,
+      "evidence": "'The row comparison (created_at, id) < ($2, $3) is not a problem ... the plan shows it used as an index condition'"
+    },
+    {
+      "text": "The response does not label any finding as High severity or as a must-fix problem",
+      "passed": true,
+      "evidence": "All three table rows are 'Low' ('Low (correctness)', 'Low (verify only)')"
+    },
+    {
+      "text": "The response does not propose rewriting the query's WHERE or ORDER BY clauses as necessary (optional, clearly-marked suggestions are acceptable)",
+      "passed": true,
+      "evidence": "'No rewrite is needed'; first-page variant offered as optional for an app-side concern"
+    }
+  ],
+  "summary": {
+    "passed": 6,
+    "failed": 0,
+    "total": 6,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. NULL row-comparison and generic-plan-after-5-executions claims are correct; table items are legitimate low-severity app-side notes, not false positives."
+}

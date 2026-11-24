@@ -1,0 +1,823 @@
+{
+  "metadata": {
+    "skill_name": "sql-optimizer",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-24T05:34:57Z",
+    "evals_run": [
+      "bigquery-columnar-tuning",
+      "mariadb-version-unknown",
+      "mysql-sparse-slow-query",
+      "postgres-full-context-index-design",
+      "postgres13-version-syntax",
+      "sqlserver-plan-reanalysis"
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": "bigquery-columnar-tuning",
+      "eval_name": "bigquery-columnar-tuning",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 138.1,
+        "tokens": 85383,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+          "passed": true,
+          "evidence": "'BigQuery has no CREATE INDEX that will fix this. There are no B-tree indexes' -> Partition + Cluster"
+        },
+        {
+          "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+          "passed": true,
+          "evidence": "'PARTITION BY DATE(event_ts)'"
+        },
+        {
+          "text": "The response recommends clustering with project_id as the first clustering column",
+          "passed": true,
+          "evidence": "'CLUSTER BY project_id, event_name' with 'The first cluster column prunes best'"
+        },
+        {
+          "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter) and warns it can break other existing queries",
+          "passed": true,
+          "evidence": "'require_partition_filter = TRUE' and 'Any Looker explore without a date filter will start erroring'"
+        },
+        {
+          "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+          "passed": true,
+          "evidence": "'You cannot add partitioning to an existing table in place' + CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT, rename swap"
+        },
+        {
+          "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) and notes that the dry-run estimate is an upper bound for clustered tables",
+          "passed": true,
+          "evidence": "bq --dry_run and INFORMATION_SCHEMA.JOBS; 'With a dry run you can see the exact upper bound (clustering pruning only shows up after the query runs)'"
+        },
+        {
+          "text": "If the response suggests a materialized view, it handles COUNT(DISTINCT) correctly (HLL/APPROX functions or a non-incremental alternative) rather than proposing an exact COUNT(DISTINCT) incremental MV; passes if no MV is proposed",
+          "passed": true,
+          "evidence": "MV uses HLL_COUNT.INIT/MERGE and states incremental MV 'does not support exact COUNT(DISTINCT)'; exact option is non-incremental MV or scheduled rollup"
+        },
+        {
+          "text": "The response estimates the expected reduction in bytes scanned and states the retention/size assumption behind it",
+          "passed": true,
+          "evidence": "'Assumed: the table holds ~2 years (\u2248730 days)' -> ~25 GB partitioned, ~0.1\u20130.5 GB clustered"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mariadb-version-unknown",
+      "eval_name": "mariadb-version-unknown",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 97.0,
+        "tokens": 83466,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MariaDB version and gives a command to get it (e.g. SELECT VERSION())",
+          "passed": true,
+          "evidence": "'First question: which exact MariaDB version is this? Run SELECT VERSION();'"
+        },
+        {
+          "text": "The response recommends an index led by status followed by due_date ASC and amount DESC, matching the mixed-direction ORDER BY",
+          "passed": true,
+          "evidence": "'ADD INDEX idx_status_due_amount (status, due_date ASC, amount DESC)'"
+        },
+        {
+          "text": "The response states that descending index parts are only honored from MariaDB 10.8 (older versions parse but ignore DESC, so the sort cannot be served by the index)",
+          "passed": true,
+          "evidence": "'MariaDB only supports descending index parts from 10.8 ... Older versions accept DESC in CREATE INDEX but ignore it'"
+        },
+        {
+          "text": "The response gives a concrete fallback for MariaDB < 10.8 (e.g. index (status, due_date) and sorting only the ties, or a persistent/virtual generated column such as negated amount)",
+          "passed": true,
+          "evidence": "Option B: B1 change sort, B2 'amount_neg ... AS (-amount) VIRTUAL' index, B3 covering + filesort, B4 upgrade"
+        },
+        {
+          "text": "The response does not recommend MySQL-8-only syntax as if it works in MariaDB (e.g. functional index key parts like INDEX ((expr)), or INVISIBLE instead of MariaDB's IGNORED)",
+          "passed": true,
+          "evidence": "Uses MariaDB 'ALTER INDEX idx_status IGNORED' (10.6+) and virtual generated columns; no functional key parts or INVISIBLE"
+        },
+        {
+          "text": "The response gives a MariaDB plan command for verification (ANALYZE FORMAT=JSON SELECT ... or EXPLAIN) and says what to look for (no filesort, rows vs r_rows)",
+          "passed": true,
+          "evidence": "EXPLAIN and 'ANALYZE FORMAT=JSON SELECT ...'; good plan: 'no Using filesort', 'r_rows around 100'"
+        },
+        {
+          "text": "The response asks for data volume / selectivity of status = 'overdue' or its distribution",
+          "passed": true,
+          "evidence": "'SELECT status, COUNT(*) FROM invoices GROUP BY status' under 'Data volume and skew'"
+        },
+        {
+          "text": "The response asks about traffic or write rate on invoices",
+          "passed": true,
+          "evidence": "'Traffic: how often is the page loaded ... Inserts and status updates per second on invoices?'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mysql-sparse-slow-query",
+      "eval_name": "mysql-sparse-slow-query",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 10,
+        "failed": 0,
+        "total": 10,
+        "time_seconds": 115.6,
+        "tokens": 87836,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MySQL version",
+          "passed": true,
+          "evidence": "Asks: 'SELECT VERSION(); C\u00f3 ph\u1ea3i RDS / Aurora / Cloud SQL hay t\u1ef1 host?' under '1. Version'"
+        },
+        {
+          "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+          "passed": true,
+          "evidence": "'SHOW CREATE TABLE orders\\G' and 'SHOW INDEX FROM orders;' under '2. C\u1ea5u tr\u00fac b\u1ea3ng v\u00e0 index hi\u1ec7n c\u00f3'"
+        },
+        {
+          "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+          "passed": true,
+          "evidence": "Section '4. Kh\u1ed1i l\u01b0\u1ee3ng d\u1eef li\u1ec7u': table_rows query, COUNT(*) WHERE shop_id = 1207, and 'SELECT status, COUNT(*) FROM orders GROUP BY status'"
+        },
+        {
+          "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+          "passed": true,
+          "evidence": "Section '5. Traffic': 'Query n\u00e0y ch\u1ea1y bao nhi\u00eau l\u1ea7n/gi\u00e2y' and 'B\u1ea3ng orders c\u00f3 bao nhi\u00eau insert/update m\u1ed7i gi\u00e2y?'"
+        },
+        {
+          "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+          "passed": true,
+          "evidence": "'M\u1ed7i d\u1ea3i t\u1ef1 s\u1eafp theo created_at, nh\u01b0ng g\u1ed9p l\u1ea1i th\u00ec kh\u00f4ng c\u00f2n \u0111\u00fang th\u1ee9 t\u1ef1 created_at DESC ... (Using filesort)' and 'status IN (2 gi\u00e1 tr\u1ecb) kh\u00f4ng ph\u1ea3i h\u1eb1ng s\u1ed1, n\u00ean status kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ee9ng tr\u01b0\u1edbc created_at'"
+        },
+        {
+          "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+          "passed": true,
+          "evidence": "'2. B\u1ecf OFFSET, chuy\u1ec3n sang keyset pagination' with full seek query using (created_at, id)"
+        },
+        {
+          "text": "If the response proposes ORDER BY created_at DESC, id DESC (keyset tie-breaker), its recommended index places id immediately after created_at (no other column between them); if it proposes no id tie-breaker this passes",
+          "passed": true,
+          "evidence": "Proposes ORDER BY created_at DESC, id DESC with index (shop_id, created_at, id, status): id immediately after created_at; also explicitly warns '(shop_id, created_at, status) th\u00ec kh\u00f4ng kh\u1edbp, v\u00ec status chen gi\u1eefa'"
+        },
+        {
+          "text": "Because the version is unknown, the response marks at least one version-dependent feature with its minimum version (e.g. EXPLAIN ANALYZE 8.0.18+, descending/invisible indexes 8.0+, EXPLAIN FORMAT=TREE 8.0.16+)",
+          "passed": true,
+          "evidence": "'plan \u01b0\u1edbc l\u01b0\u1ee3ng (8.0.16+)' EXPLAIN FORMAT=TREE, 'plan th\u1ef1c t\u1ebf (8.0.18+)' EXPLAIN ANALYZE, 'INVISIBLE (MySQL 8.0+)', DESC ignored on 5.7"
+        },
+        {
+          "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+          "passed": true,
+          "evidence": "'Sau khi t\u1ea1o index ... ch\u1ea1y v\u00e0 g\u1eedi m\u00ecnh k\u1ebft qu\u1ea3' with EXPLAIN FORMAT=TREE / EXPLAIN ANALYZE and what a good plan looks like"
+        },
+        {
+          "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+          "passed": true,
+          "evidence": "'ALGORITHM=INPLACE, LOCK=NONE' in the DDL plus 'c\u00e2n nh\u1eafc gh-ost ho\u1eb7c pt-online-schema-change'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres-full-context-index-design",
+      "eval_name": "postgres-full-context-index-design",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 117.1,
+        "tokens": 87138,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+          "passed": true,
+          "evidence": "Index (tenant_id, is_active, updated_at DESC, id DESC, price): equality cols, then updated_at DESC, price after as key (R)"
+        },
+        {
+          "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+          "passed": true,
+          "evidence": "is_active as equality key column; 'Why not a partial index (... WHERE is_active)?' explains 85% active saves ~15% and key form lets dropping idx_products_tenant"
+        },
+        {
+          "text": "The response quantifies ESR vs E-R-S for the biggest tenant (approximate index entries read in each case, using the given 6M / 85% / 30% figures)",
+          "passed": true,
+          "evidence": "'ESR: about 24 / 0.30 \u2248 80 index entries read' vs 'E-R-S for the biggest tenant: about 5.1M \u00d7 0.30 \u2248 1.5M rows read and sorted'"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY and mentions checking for an INVALID index if the build fails",
+          "passed": true,
+          "evidence": "'CREATE INDEX CONCURRENTLY ...' and 'If the build fails, it leaves an INVALID index behind. Check with ... WHERE NOT indisvalid'"
+        },
+        {
+          "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+          "passed": true,
+          "evidence": "'Writes: ... Your price updates are already non-HOT, because price is indexed ... Adding updated_at to an index ... about 170/s'"
+        },
+        {
+          "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+          "passed": true,
+          "evidence": "'3. Clean up the now-redundant index' drop idx_products_tenant; 'Leave idx_products_price alone unless its idx_scan stays at 0'"
+        },
+        {
+          "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "'EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)' plus good plan: 'Limit -> Index Scan ...', 'No Sort node'"
+        },
+        {
+          "text": "The response gives a PG16-valid way to check the generic plan of the prepared statement (EXPLAIN (GENERIC_PLAN), plan_cache_mode, or PREPARE/EXECUTE)",
+          "passed": true,
+          "evidence": "'EXPLAIN (GENERIC_PLAN)' labelled 'PG 16+', plus plan_cache_mode = force_custom_plan option"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres13-version-syntax",
+      "eval_name": "postgres13-version-syntax",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 10,
+        "failed": 0,
+        "total": 10,
+        "time_seconds": 141.9,
+        "tokens": 89962,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has region first and created_at (DESC) right after it, with status handled by a partial index predicate (WHERE status IN ('NEW','PAID')) or placed after created_at",
+          "passed": true,
+          "evidence": "'CREATE INDEX CONCURRENTLY idx_orders_open_region_created ON orders (region, created_at DESC) WHERE status IN (''NEW'', ''PAID'')'"
+        },
+        {
+          "text": "The response explains why status IN ('NEW','PAID') should not sit between region and created_at (multi-value IN breaks the order / forces a sort), or why a partial index removes it from the key",
+          "passed": true,
+          "evidence": "'rows come back as all NEW, then all PAID, not in global created_at DESC order. So PG 13 must ... run a top-N Sort' and partial predicate folds status out of the key"
+        },
+        {
+          "text": "The response does not present EXPLAIN (GENERIC_PLAN) as available on PostgreSQL 13; if mentioned, it is flagged as PostgreSQL 16+ only",
+          "passed": true,
+          "evidence": "'not available on 13: EXPLAIN (GENERIC_PLAN) (added in 16)'"
+        },
+        {
+          "text": "The response gives a PostgreSQL 13-valid way to see the app's real plan: PREPARE/EXECUTE 6+ times, SET plan_cache_mode = force_generic_plan, and/or auto_explain with log_analyze",
+          "passed": true,
+          "evidence": "PREPARE + 'SET plan_cache_mode = force_generic_plan' + auto_explain with log_analyze"
+        },
+        {
+          "text": "The response mentions JDBC server-side prepare behavior (prepareThreshold, default 5) or otherwise explains when the driver switches to a server-prepared / generic plan",
+          "passed": true,
+          "evidence": "'pgJDBC switches to a named server-side prepared statement after prepareThreshold executions (default 5)'"
+        },
+        {
+          "text": "The response does not rely on B-tree skip scan (PostgreSQL 18+) for the recommendation",
+          "passed": true,
+          "evidence": "'B-tree skip scan (added in 18). So I won't rely on either'"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY",
+          "passed": true,
+          "evidence": "CREATE INDEX CONCURRENTLY used for both options"
+        },
+        {
+          "text": "The response addresses write cost given ~300 inserts/sec and 1-2 status updates per order (e.g. partial index entries added/removed on status change, HOT updates)",
+          "passed": true,
+          "evidence": "'HOT updates (the real trade-off) ... an UPDATE that changes status can no longer be a HOT update' and insert cost ~300/s"
+        },
+        {
+          "text": "The response addresses the existing idx_orders_region / idx_orders_created (redundant or to evaluate dropping)",
+          "passed": true,
+          "evidence": "'Cleanup': drop idx_orders_region if unused; 'Keep idx_orders_created unless ... unused'"
+        },
+        {
+          "text": "The response gives EXPLAIN (ANALYZE, BUFFERS) and describes what a good plan looks like (no Sort, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "'EXPLAIN (ANALYZE, BUFFERS, SETTINGS) EXECUTE q(''EU'')' and good plan 'Limit -> Index Scan ... There should be no Sort node'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "sqlserver-plan-reanalysis",
+      "eval_name": "sqlserver-plan-reanalysis",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 124.3,
+        "tokens": 97489,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+          "passed": true,
+          "evidence": "'Inside one AssigneeId, your index stores rows ordered by CreatedAt, not by Priority ... has to read every matching row (41,233), sort them all' (E-R-S vs E-S-R)"
+        },
+        {
+          "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+          "passed": true,
+          "evidence": "'CREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Priority_Created ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)'"
+        },
+        {
+          "text": "The response addresses the Key Lookup cost explicitly: either INCLUDE (Subject) / covering, or an explicit argument that lookups drop to about 20 after reordering",
+          "passed": true,
+          "evidence": "'about 20 Key Lookups instead of 41,233' and explicit 'Why I do not INCLUDE Subject' argument"
+        },
+        {
+          "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+          "passed": true,
+          "evidence": "'Estimated 1,850 vs actual 41,233 rows (22\u00d7 off)' linked to parameter sniffing, local variables, stale statistics"
+        },
+        {
+          "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since, including the worst case where high-priority tickets are mostly old",
+          "passed": true,
+          "evidence": "'roughly 20 \u00d7 400k / 40k \u2248 200 index rows' plus 'Worst case ... the agent's full 400k-row history, it reads about 1,500 pages'"
+        },
+        {
+          "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+          "passed": true,
+          "evidence": "'Replace, don't stack' with usage-stats check, DISABLE then DROP IX_Tickets_Assignee_Created"
+        },
+        {
+          "text": "Every SQL Server feature the response recommends exists in SQL Server 2019 / compat level 150, or is explicitly marked as needing a newer version (e.g. PSP optimization is 2022)",
+          "passed": true,
+          "evidence": "PSP flagged: 'needs SQL Server 2022 / compat 160, so it is not available to you'; ONLINE flagged Enterprise; RESUMABLE CREATE INDEX is valid on 2019; row-mode memory grant feedback at compat 150 is valid"
+        },
+        {
+          "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+          "passed": true,
+          "evidence": "'SET STATISTICS IO, TIME ON; ... Include Actual Execution Plan' and before/after table with 'Logical reads (Tickets) | 131,904 | ?'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "bigquery-columnar-tuning",
+      "eval_name": "bigquery-columnar-tuning",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 66.0,
+        "tokens": 67195,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+          "passed": true,
+          "evidence": "'BigQuery doesn't have B-tree indexes ... Partition and cluster the table instead'"
+        },
+        {
+          "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+          "passed": true,
+          "evidence": "'PARTITION BY DATE(event_ts)'"
+        },
+        {
+          "text": "The response recommends clustering with project_id as the first clustering column",
+          "passed": true,
+          "evidence": "'CLUSTER BY project_id, event_name, user_id' and 'project_id goes first because nearly every query filters on it'"
+        },
+        {
+          "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter) and warns it can break other existing queries",
+          "passed": true,
+          "evidence": "'require_partition_filter = TRUE ... makes any query without a time filter fail ... Turn it on only after checking that your existing Looker explores always pass a date filter'"
+        },
+        {
+          "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+          "passed": true,
+          "evidence": "'You can't add partitioning to an existing table in place' + CTAS into events_v2 and rename swap"
+        },
+        {
+          "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) and notes that the dry-run estimate is an upper bound for clustered tables",
+          "passed": true,
+          "evidence": "Dry run + INFORMATION_SCHEMA.JOBS_BY_PROJECT; 'The dry-run estimate reflects partition pruning but not clustering pruning, so it will still look high-ish'"
+        },
+        {
+          "text": "If the response suggests a materialized view, it handles COUNT(DISTINCT) correctly (HLL/APPROX functions or a non-incremental alternative) rather than proposing an exact COUNT(DISTINCT) incremental MV; passes if no MV is proposed",
+          "passed": true,
+          "evidence": "Proposes a scheduled rollup table with HLL_COUNT, and notes 'incremental MVs support APPROX_COUNT_DISTINCT/HLL sketches but not exact COUNT(DISTINCT)'"
+        },
+        {
+          "text": "The response estimates the expected reduction in bytes scanned and states the retention/size assumption behind it",
+          "passed": false,
+          "evidence": "Gives '100\u20131000\u00d7 reduction, depending on how many days of history you have' and 'a few GB to tens of GB' but never states a concrete retention/size assumption"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mariadb-version-unknown",
+      "eval_name": "mariadb-version-unknown",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 68.4,
+        "tokens": 64979,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MariaDB version and gives a command to get it (e.g. SELECT VERSION())",
+          "passed": true,
+          "evidence": "'Check what prod is running ... SELECT VERSION();'"
+        },
+        {
+          "text": "The response recommends an index led by status followed by due_date ASC and amount DESC, matching the mixed-direction ORDER BY",
+          "passed": true,
+          "evidence": "Case A: '(status, due_date ASC, amount DESC, customer_id)'"
+        },
+        {
+          "text": "The response states that descending index parts are only honored from MariaDB 10.8 (older versions parse but ignore DESC, so the sort cannot be served by the index)",
+          "passed": true,
+          "evidence": "'Real descending indexes only arrived in MariaDB 10.8. Before 10.8, MariaDB accepts DESC in an index definition but ignores it'"
+        },
+        {
+          "text": "The response gives a concrete fallback for MariaDB < 10.8 (e.g. index (status, due_date) and sorting only the ties, or a persistent/virtual generated column such as negated amount)",
+          "passed": true,
+          "evidence": "Case B Option 1 'neg_amount ... AS (-amount) VIRTUAL' index; Option 2 (status, due_date, amount); Option 3 change ordering"
+        },
+        {
+          "text": "The response does not recommend MySQL-8-only syntax as if it works in MariaDB (e.g. functional index key parts like INDEX ((expr)), or INVISIBLE instead of MariaDB's IGNORED)",
+          "passed": true,
+          "evidence": "No MySQL-8-only syntax; uses virtual generated column, plain DROP INDEX"
+        },
+        {
+          "text": "The response gives a MariaDB plan command for verification (ANALYZE FORMAT=JSON SELECT ... or EXPLAIN) and says what to look for (no filesort, rows vs r_rows)",
+          "passed": true,
+          "evidence": "EXPLAIN + 'ANALYZE FORMAT=JSON SELECT ..., which reports the rows actually read'; 'Extra does not show Using filesort'"
+        },
+        {
+          "text": "The response asks for data volume / selectivity of status = 'overdue' or its distribution",
+          "passed": true,
+          "evidence": "'Roughly how many rows have status = overdue (SELECT COUNT(*) ...)'"
+        },
+        {
+          "text": "The response asks about traffic or write rate on invoices",
+          "passed": false,
+          "evidence": "Never asks about page traffic or write/update rate on invoices; only mentions write overhead of keeping idx_status"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mysql-sparse-slow-query",
+      "eval_name": "mysql-sparse-slow-query",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.8,
+        "passed": 8,
+        "failed": 2,
+        "total": 10,
+        "time_seconds": 59.7,
+        "tokens": 66009,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MySQL version",
+          "passed": true,
+          "evidence": "'Phi\u00ean b\u1ea3n MySQL (SELECT VERSION();)' in the list of things to send"
+        },
+        {
+          "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+          "passed": true,
+          "evidence": "'K\u1ebft qu\u1ea3 SHOW CREATE TABLE orders;' and 'Ki\u1ec3m tra index \u0111ang c\u00f3 (SHOW INDEX FROM orders)'"
+        },
+        {
+          "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+          "passed": true,
+          "evidence": "'S\u1ed1 d\u00f2ng c\u1ee7a b\u1ea3ng, v\u00e0 k\u1ebft qu\u1ea3 query GROUP BY status \u1edf tr\u00ean cho shop 1207'"
+        },
+        {
+          "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+          "passed": false,
+          "evidence": "No question about QPS/frequency or write rate; only 'C\u00e1c shop kh\u00e1c query c\u0169ng ch\u1eadm hay ch\u1ec9 shop n\u00e0y?' which is not traffic"
+        },
+        {
+          "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+          "passed": true,
+          "evidence": "'n\u1ebfu index l\u00e0 (shop_id, status, created_at) th\u00ec v\u1edbi 2 gi\u00e1 tr\u1ecb status, MySQL kh\u00f4ng d\u00f9ng th\u1ee9 t\u1ef1 c\u1ee7a index \u0111\u1ec3 sort \u0111\u01b0\u1ee3c ... filesort'"
+        },
+        {
+          "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+          "passed": true,
+          "evidence": "'C\u00e1ch 2: Keyset pagination (t\u1ed1t nh\u1ea5t v\u1ec1 l\u00e2u d\u00e0i)' with (created_at, id) cursor"
+        },
+        {
+          "text": "If the response proposes ORDER BY created_at DESC, id DESC (keyset tie-breaker), its recommended index places id immediately after created_at (no other column between them); if it proposes no id tie-breaker this passes",
+          "passed": false,
+          "evidence": "Proposes ORDER BY created_at DESC, id DESC but recommended index is (shop_id, created_at, status): status sits between created_at and the implicit PK id"
+        },
+        {
+          "text": "Because the version is unknown, the response marks at least one version-dependent feature with its minimum version (e.g. EXPLAIN ANALYZE 8.0.18+, descending/invisible indexes 8.0+, EXPLAIN FORMAT=TREE 8.0.16+)",
+          "passed": true,
+          "evidence": "'EXPLAIN FORMAT=JSON n\u1ebfu MySQL < 8.0.18' (marks EXPLAIN ANALYZE as 8.0.18+); 'ALGORITHM=INPLACE, LOCK=NONE (MySQL 5.6+/8.0)'"
+        },
+        {
+          "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+          "passed": true,
+          "evidence": "'Sau khi th\u00eam index, ch\u1ea1y EXPLAIN ANALYZE l\u1ea1i \u0111\u1ec3 x\u00e1c nh\u1eadn: key l\u00e0 index m\u1edbi, kh\u00f4ng c\u00f2n Using filesort'"
+        },
+        {
+          "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+          "passed": true,
+          "evidence": "'ALGORITHM=INPLACE, LOCK=NONE' and 'n\u00ean d\u00f9ng gh-ost ho\u1eb7c pt-online-schema-change'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres-full-context-index-design",
+      "eval_name": "postgres-full-context-index-design",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 82.9,
+        "tokens": 69106,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+          "passed": true,
+          "evidence": "Index (tenant_id, updated_at DESC, price) WHERE is_active: tenant_id first, updated_at DESC next, price key after"
+        },
+        {
+          "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+          "passed": true,
+          "evidence": "Partial 'WHERE is_active' with explanation: 'Leaves out the ~15% of rows that are inactive ... planner can prove the partial index applies even in a generic plan'"
+        },
+        {
+          "text": "The response quantifies ESR vs E-R-S for the biggest tenant (approximate index entries read in each case, using the given 6M / 85% / 30% figures)",
+          "passed": true,
+          "evidence": "'the scan walks about 24 / 0.3 \u2248 80 index entries' vs '(tenant_id, price, updated_at) ... read every matching row (~1.5M for the big tenant) and sort them'"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY and mentions checking for an INVALID index if the build fails",
+          "passed": true,
+          "evidence": "CREATE INDEX CONCURRENTLY plus 'A failed CONCURRENTLY build leaves behind an INVALID index' with indisvalid check"
+        },
+        {
+          "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+          "passed": true,
+          "evidence": "'Write-side impact (150 updates/s, 20 inserts/s)' HOT section: 'essentially every update becomes a non-HOT update'"
+        },
+        {
+          "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+          "passed": true,
+          "evidence": "Cleanup section: drop idx_products_price after checks; 'idx_products_tenant. Don't drop it blindly' (partial index)"
+        },
+        {
+          "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "'EXPLAIN (ANALYZE, BUFFERS, SETTINGS)' with good plan 'There is no Sort node', Limit -> Index Scan"
+        },
+        {
+          "text": "The response gives a PG16-valid way to check the generic plan of the prepared statement (EXPLAIN (GENERIC_PLAN), plan_cache_mode, or PREPARE/EXECUTE)",
+          "passed": true,
+          "evidence": "'EXPLAIN (GENERIC_PLAN)' ('PG 16 can show the generic plan directly') plus PREPARE + force_generic_plan"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres13-version-syntax",
+      "eval_name": "postgres13-version-syntax",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.9,
+        "passed": 9,
+        "failed": 1,
+        "total": 10,
+        "time_seconds": 73.7,
+        "tokens": 68158,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has region first and created_at (DESC) right after it, with status handled by a partial index predicate (WHERE status IN ('NEW','PAID')) or placed after created_at",
+          "passed": true,
+          "evidence": "'ON orders (region, created_at DESC) WHERE status IN (''NEW'',''PAID'')'"
+        },
+        {
+          "text": "The response explains why status IN ('NEW','PAID') should not sit between region and created_at (multi-value IN breaks the order / forces a sort), or why a partial index removes it from the key",
+          "passed": false,
+          "evidence": "Only says 'Equality column first, then the range/sort column'; never explains that multi-value IN between region and created_at breaks ordering, nor explicitly why the partial predicate takes status out of the key"
+        },
+        {
+          "text": "The response does not present EXPLAIN (GENERIC_PLAN) as available on PostgreSQL 13; if mentioned, it is flagged as PostgreSQL 16+ only",
+          "passed": true,
+          "evidence": "'(EXPLAIN (GENERIC_PLAN) only exists from Postgres 16, so on 13 use the PREPARE/plan_cache_mode approach.)'"
+        },
+        {
+          "text": "The response gives a PostgreSQL 13-valid way to see the app's real plan: PREPARE/EXECUTE 6+ times, SET plan_cache_mode = force_generic_plan, and/or auto_explain with log_analyze",
+          "passed": true,
+          "evidence": "PREPARE + force_generic_plan, 'EXECUTE q(''EU''); six or more times', and auto_explain with log_analyze"
+        },
+        {
+          "text": "The response mentions JDBC server-side prepare behavior (prepareThreshold, default 5) or otherwise explains when the driver switches to a server-prepared / generic plan",
+          "passed": true,
+          "evidence": "'pgjdbc switches to a server-side prepared statement after prepareThreshold executions (default 5)'"
+        },
+        {
+          "text": "The response does not rely on B-tree skip scan (PostgreSQL 18+) for the recommendation",
+          "passed": true,
+          "evidence": "No skip-scan reliance; recommendation is a partial index with region leading"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY",
+          "passed": true,
+          "evidence": "'CREATE INDEX CONCURRENTLY idx_orders_open_region_created'"
+        },
+        {
+          "text": "The response addresses write cost given ~300 inserts/sec and 1-2 status updates per order (e.g. partial index entries added/removed on status change, HOT updates)",
+          "passed": true,
+          "evidence": "'Status updates and HOT ... roughly 300-600 non-HOT updates/s'"
+        },
+        {
+          "text": "The response addresses the existing idx_orders_region / idx_orders_created (redundant or to evaluate dropping)",
+          "passed": true,
+          "evidence": "'idx_orders_region ... is almost certainly useless ... DROP INDEX CONCURRENTLY'; 'Keep idx_orders_created unless ...'"
+        },
+        {
+          "text": "The response gives EXPLAIN (ANALYZE, BUFFERS) and describes what a good plan looks like (no Sort, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "'EXPLAIN (ANALYZE, BUFFERS) EXECUTE q(''EU'')'; good plan described as 'single ordered range scan with no Sort node', stop after 50 rows"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "sqlserver-plan-reanalysis",
+      "eval_name": "sqlserver-plan-reanalysis",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 70.7,
+        "tokens": 68090,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+          "passed": true,
+          "evidence": "'(AssigneeId, CreatedAt, Priority) ... hands them back sorted by CreatedAt, and you asked for Priority DESC, CreatedAt DESC'"
+        },
+        {
+          "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+          "passed": true,
+          "evidence": "Option 1: 'ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)'"
+        },
+        {
+          "text": "The response addresses the Key Lookup cost explicitly: either INCLUDE (Subject) / covering, or an explicit argument that lookups drop to about 20 after reordering",
+          "passed": true,
+          "evidence": "'at most ~20 lookups (none if you INCLUDE Subject)' plus 'About INCLUDE (Subject)' section"
+        },
+        {
+          "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+          "passed": true,
+          "evidence": "'Estimated 1,850 against actual 41,233' -> 'plan was compiled (sniffed) for a quieter agent ... or the parameters are local variables'"
+        },
+        {
+          "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since, including the worst case where high-priority tickets are mostly old",
+          "passed": false,
+          "evidence": "Only qualitative worst case ('reads all of that priority's older tickets ... can cost thousands of rows'); no estimate of rows read for the typical case using the ~10% (40k/400k) ratio"
+        },
+        {
+          "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+          "passed": true,
+          "evidence": "'Don't drop IX_Tickets_Assignee_Created yet. Check whether anything else uses it ... replace it with the new index'"
+        },
+        {
+          "text": "Every SQL Server feature the response recommends exists in SQL Server 2019 / compat level 150, or is explicitly marked as needing a newer version (e.g. PSP optimization is 2022)",
+          "passed": true,
+          "evidence": "Only ONLINE (flagged Enterprise), SORT_IN_TEMPDB, OPTION (RECOMPILE), Query Store: all available in 2019"
+        },
+        {
+          "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+          "passed": true,
+          "evidence": "'Run with SET STATISTICS IO, TIME ON and the actual plan ... logical reads in the tens or low hundreds, not 131,904'; 'compare ... reads before and after in Query Store'"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 122.3333,
+        "stddev": 16.4305,
+        "min": 97.0,
+        "max": 141.9
+      },
+      "tokens": {
+        "mean": 88545.6667,
+        "stddev": 4904.6883,
+        "min": 83466,
+        "max": 97489
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.8875,
+        "stddev": 0.0647,
+        "min": 0.8,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 70.2333,
+        "stddev": 7.8091,
+        "min": 59.7,
+        "max": 82.9
+      },
+      "tokens": {
+        "mean": 67256.1667,
+        "stddev": 1528.0785,
+        "min": 64979,
+        "max": 69106
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.11",
+      "time_seconds": "+52.1",
+      "tokens": "+21290"
+    }
+  },
+  "notes": [
+    "with_skill 52/52 vs without_skill 46/52. Gaps: asking about traffic (mysql, mariadb), index/ORDER BY tie-breaker consistency (mysql), quantified rows read (sqlserver), stated retention assumption (bigquery), explaining multi-value IN vs partial index (pg13).",
+    "Most serious baseline error: mysql index (shop_id, created_at, status) with ORDER BY created_at DESC, id DESC still filesorts; with_skill used (shop_id, created_at, id, status) per new esr-rule 5.6.",
+    "Version-trap assertions (GENERIC_PLAN on PG13, MariaDB DESC 10.8) did not discriminate: baseline model knows these too. Skill's value is in process (asking, quantifying) more than raw facts.",
+    "postgres-full-context is saturated for both configs; needs harder assertions next round.",
+    "Caveat: mysql with_skill run saw grader file names while listing the skill folder (did not open them). Move evals/ out of the skill folder or exclude it for future runs.",
+    "Cost: with_skill ~+45s and ~+20k tokens per run, mainly reading references and fetching 1-2 official doc pages."
+  ]
+}

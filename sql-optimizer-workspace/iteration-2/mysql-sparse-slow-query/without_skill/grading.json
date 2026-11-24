@@ -1,0 +1,61 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MySQL version",
+      "passed": true,
+      "evidence": "'Phiên bản MySQL (SELECT VERSION();)' in the list of things to send"
+    },
+    {
+      "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+      "passed": true,
+      "evidence": "'Kết quả SHOW CREATE TABLE orders;' and 'Kiểm tra index đang có (SHOW INDEX FROM orders)'"
+    },
+    {
+      "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+      "passed": true,
+      "evidence": "'Số dòng của bảng, và kết quả query GROUP BY status ở trên cho shop 1207'"
+    },
+    {
+      "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+      "passed": false,
+      "evidence": "No question about QPS/frequency or write rate; only 'Các shop khác query cũng chậm hay chỉ shop này?' which is not traffic"
+    },
+    {
+      "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+      "passed": true,
+      "evidence": "'nếu index là (shop_id, status, created_at) thì với 2 giá trị status, MySQL không dùng thứ tự của index để sort được ... filesort'"
+    },
+    {
+      "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+      "passed": true,
+      "evidence": "'Cách 2: Keyset pagination (tốt nhất về lâu dài)' with (created_at, id) cursor"
+    },
+    {
+      "text": "If the response proposes ORDER BY created_at DESC, id DESC (keyset tie-breaker), its recommended index places id immediately after created_at (no other column between them); if it proposes no id tie-breaker this passes",
+      "passed": false,
+      "evidence": "Proposes ORDER BY created_at DESC, id DESC but recommended index is (shop_id, created_at, status): status sits between created_at and the implicit PK id"
+    },
+    {
+      "text": "Because the version is unknown, the response marks at least one version-dependent feature with its minimum version (e.g. EXPLAIN ANALYZE 8.0.18+, descending/invisible indexes 8.0+, EXPLAIN FORMAT=TREE 8.0.16+)",
+      "passed": true,
+      "evidence": "'EXPLAIN FORMAT=JSON nếu MySQL < 8.0.18' (marks EXPLAIN ANALYZE as 8.0.18+); 'ALGORITHM=INPLACE, LOCK=NONE (MySQL 5.6+/8.0)'"
+    },
+    {
+      "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+      "passed": true,
+      "evidence": "'Sau khi thêm index, chạy EXPLAIN ANALYZE lại để xác nhận: key là index mới, không còn Using filesort'"
+    },
+    {
+      "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+      "passed": true,
+      "evidence": "'ALGORITHM=INPLACE, LOCK=NONE' and 'nên dùng gh-ost hoặc pt-online-schema-change'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 2,
+    "total": 10,
+    "pass_rate": 0.8
+  },
+  "overall_notes": "Deferred-join/keyset queries use ORDER BY created_at DESC, id DESC against index (shop_id, created_at, status[,id]); because status sits between created_at and id, that ORDER BY cannot be satisfied from the index order and will filesort, contradicting the implied no-filesort benefit. The claim 'InnoDB tự gắn id vào cuối nên không cần thêm id' is true but does not make id usable as a tie-breaker sort column here."
+}

@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies parameter sniffing: the cached plan was compiled for 'Closed' (ParameterCompiledValue) and reused for 'Open'",
+      "passed": true,
+      "evidence": "'This is parameter sniffing. The plan the API is using was compiled for 'Closed' (ParameterCompiledValue = 'Closed'...) and it keeps getting reused for 'Open''."
+    },
+    {
+      "text": "The response explains concretely why SSMS is fast: different SET options (ARITHABORT) give a separate plan cache entry, and/or the DECLARE local-variable test uses density estimates instead of sniffing",
+      "passed": true,
+      "evidence": "'SSMS connects with SET ARITHABORT ON by default. ADO.NET / SqlClient connects with ARITHABORT OFF. SET options are part of the plan cache key'."
+    },
+    {
+      "text": "The response states that no new index is needed because IX_Tickets_Status_CreatedAt already fits the query",
+      "passed": true,
+      "evidence": "'Short answer: no, you don't need another index'; only possible change is adding TicketId to INCLUDE if it is not the clustering key."
+    },
+    {
+      "text": "The response recommends at least one fix valid on SQL Server 2019 Standard: OPTION (RECOMPILE), OPTIMIZE FOR, a separate procedure/code path for the 'Closed' export, or Query Store plan forcing",
+      "passed": true,
+      "evidence": "Options: separate proc, OPTIMIZE FOR (@Status = 'Open'), OPTION (RECOMPILE), Query Store plan forcing ('available in 2019 Standard')."
+    },
+    {
+      "text": "The response does not present Parameter Sensitive Plan optimization as available on SQL Server 2019 / compat 150 (passes if not mentioned or flagged as 2022 / compat 160 only)",
+      "passed": true,
+      "evidence": "'Parameter Sensitive Plan optimization ... needs SQL Server 2022 at compat level 160. You don't get it on 2019 / 150.'"
+    },
+    {
+      "text": "The response explains how to reproduce the app's plan correctly (sp_executesql with a real parameter, matching the app's SET options, or pulling the plan from the cache / Query Store) and does not present toggling ARITHABORT as the fix",
+      "passed": true,
+      "evidence": "'SET ARITHABORT OFF; -- match the .NET connection so you hit the API's cached plan' plus plan-cache query; 'Don't fix this by turning ARITHABORT ON in the app's connection string.'"
+    },
+    {
+      "text": "The response says the nightly 'Closed' export (11.4M rows) should get its own handling (separate proc, RECOMPILE, or different query) so it cannot poison the API plan",
+      "passed": true,
+      "evidence": "Permanent fix #1: 'Give the nightly export its own proc (recommended)... can't poison each other.'"
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": false,
+      "evidence": "No explicit severity labels anywhere; issues are presented as prose and a ranked option list ('pick one; I'd do #1') only."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none. Correct note that OPTIMIZE FOR UNKNOWN / local variable would give density (~4M) estimate and still pick scan."
+}

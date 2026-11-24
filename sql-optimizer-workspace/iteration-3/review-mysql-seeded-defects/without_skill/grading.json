@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags DATE(o.created_at) = '2026-11-01' as preventing use of idx_created and rewrites it as a half-open range on created_at",
+      "passed": true,
+      "evidence": "Section 2: 'MySQL không range-scan được trên idx_created nữa' -> 'o.created_at >= '2026-11-01' AND o.created_at < '2026-11-02''"
+    },
+    {
+      "text": "The response flags o.phone = 0912345678 (number vs VARCHAR column) as an implicit cast of the column that prevents use of idx_phone, and fixes it by quoting the value",
+      "passed": true,
+      "evidence": "Section 1: 'MySQL đổi từng giá trị phone sang số thực (double) ... idx_phone không dùng được'; fix `o.phone = '0912345678'`"
+    },
+    {
+      "text": "The response points out that comparing phone as a number loses the leading zero / can match wrong rows (a correctness problem, not only speed)",
+      "passed": true,
+      "evidence": "'Kết quả có thể sai. Số 0 ở đầu bị mất. Các chuỗi như '912345678', '0912345678'... đều được coi là bằng 912345678'"
+    },
+    {
+      "text": "The response flags LIKE '%@gmail.com' as a leading wildcard that cannot use an index and proposes an alternative (e.g. stored/indexed email domain column, reversed column, full-text)",
+      "passed": true,
+      "evidence": "Section 4: 'LIKE có % ở đầu thì không dùng được index B-tree'; alternative 'cột generated email_domain (SUBSTRING_INDEX(...)) rồi đánh index'"
+    },
+    {
+      "text": "The response flags the OR between customer_email and coupon_code as preventing a single index range scan and proposes UNION / UNION ALL or explains index-merge behavior",
+      "passed": true,
+      "evidence": "Section 4: 'OR giữa hai cột khác nhau ... index_merge (union) thì lại cần nhánh email cũng có index, mà nhánh này không có'"
+    },
+    {
+      "text": "The response flags ORDER BY RAND() as generating and sorting a value for every matching row and proposes an alternative",
+      "passed": true,
+      "evidence": "Section 3: 'MySQL phải sinh số ngẫu nhiên cho mọi dòng khớp ... filesort' -> 'ORDER BY created_at DESC'"
+    },
+    {
+      "text": "The response flags SELECT * as reading the TEXT/JSON columns (note, payload) unnecessarily and proposes listing columns",
+      "passed": true,
+      "evidence": "Section 5: 'Phải đọc cả các cột lớn. TEXT và JSON thường nằm ở trang off-page' -> 'chỉ chọn các cột cần hiển thị'"
+    },
+    {
+      "text": "The response gives a full rewritten query that quotes the phone value and uses a range on created_at",
+      "passed": true,
+      "evidence": "'Query đề xuất' with `o.phone = '0912345678'` and half-open created_at range"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "Numbered sections explicitly ranked: 'Mình xếp theo mức độ ảnh hưởng', #1 '(nghiêm trọng nhất)', #4 'không đáng lo', each with its own **Sửa**. Borderline: priority is by ordering, not per-issue labels."
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. All technical claims correct."
+}

@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that python datetime values are bound as TIMESTAMP and compared to a DATE column, so Oracle applies INTERNAL_FUNCTION to the column and cannot use IDX_ORDERS_DATE",
+      "passed": true,
+      "evidence": "'python-oracledb sends your datetime values as TIMESTAMP binds, but orders.order_date is a DATE... It converts the column to TIMESTAMP... the B-tree on plain order_date can't be used as an access predicate.'"
+    },
+    {
+      "text": "The response fixes it by binding as DATE (e.g. cursor.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...)) or by CAST(:start_ts AS DATE) / TO_DATE on the parameter side",
+      "passed": true,
+      "evidence": "cur.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...) and CAST(:start_ts AS DATE) alternative."
+    },
+    {
+      "text": "The response says rebuilding the index will not help",
+      "passed": true,
+      "evidence": "'Rebuilding the index: nothing is wrong with the index... A rebuild changes nothing.'"
+    },
+    {
+      "text": "The response says a hint is not the right fix (or not needed once the bind type is fixed)",
+      "passed": true,
+      "evidence": "'/*+ INDEX(orders IDX_ORDERS_DATE) */: ... The best the hint can give you is an INDEX FULL SCAN ... It also hides the real bug'."
+    },
+    {
+      "text": "The response explains why the SQL Developer test with literal dates uses the index (the literals are DATE, so no conversion)",
+      "passed": true,
+      "evidence": "'SQL Developer uses the index because DATE '2026-11-23' and TO_DATE(...) literals are of type DATE. Types match, so there's no conversion'."
+    },
+    {
+      "text": "The response gives verification with DBMS_XPLAN.DISPLAY_CURSOR and says what to expect: INDEX RANGE SCAN with access(...) predicates and peeked binds of type DATE",
+      "passed": true,
+      "evidence": "DISPLAY_CURSOR('&sql_id', NULL, 'ALLSTATS LAST +PEEKED_BINDS'); expects '(DATE)', 'INDEX RANGE SCAN IDX_ORDERS_DATE', 'access(\"ORDER_DATE\">=:START_TS AND \"ORDER_DATE\"<:END_TS)'."
+    },
+    {
+      "text": "The response does not recommend creating a new index as the primary fix",
+      "passed": true,
+      "evidence": "Explicitly rejects function-based index ('Don't'); covering index only 'if the query is still too slow after the fix'."
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": false,
+      "evidence": "No explicit severity labels; issues are given as prose/numbered explanations."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none. Minor: does not mention ALLSTATS LAST requires gather_plan_statistics/statistics_level=ALL to populate A-Rows."
+}

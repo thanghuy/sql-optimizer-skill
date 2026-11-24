@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies parameter sniffing: the cached plan was compiled for 'Closed' (ParameterCompiledValue) and reused for 'Open'",
+      "passed": true,
+      "evidence": "Diagnosis 1: 'The cached plan was compiled for 'Closed' and is reused for 'Open'' citing ParameterCompiledValue/RuntimeValue."
+    },
+    {
+      "text": "The response explains concretely why SSMS is fast: different SET options (ARITHABORT) give a separate plan cache entry, and/or the DECLARE local-variable test uses density estimates instead of sniffing",
+      "passed": true,
+      "evidence": "'SSMS connects with SET ARITHABORT ON. .NET SqlClient leaves it OFF. ARITHABORT is a plan-cache key, so your SSMS session gets its own cache entry'; also correctly notes the DECLARE->EXEC test still sniffs."
+    },
+    {
+      "text": "The response states that no new index is needed because IX_Tickets_Status_CreatedAt already fits the query",
+      "passed": true,
+      "evidence": "'Short answer: no, you don't need another index... A second index won't help.' Index matches by ESR; only conditional INCLUDE(TicketId) extension of the existing index if TicketId is not the clustered key."
+    },
+    {
+      "text": "The response recommends at least one fix valid on SQL Server 2019 Standard: OPTION (RECOMPILE), OPTIMIZE FOR, a separate procedure/code path for the 'Closed' export, or Query Store plan forcing",
+      "passed": true,
+      "evidence": "Separate dbo.ExportTicketsByStatus with OPTION (RECOMPILE); Query Store force plan; sp_recompile stopgap."
+    },
+    {
+      "text": "The response does not present Parameter Sensitive Plan optimization as available on SQL Server 2019 / compat 150 (passes if not mentioned or flagged as 2022 / compat 160 only)",
+      "passed": true,
+      "evidence": "'Parameter Sensitive Plan optimization needs SQL Server 2022 / compat 160.'"
+    },
+    {
+      "text": "The response explains how to reproduce the app's plan correctly (sp_executesql with a real parameter, matching the app's SET options, or pulling the plan from the cache / Query Store) and does not present toggling ARITHABORT as the fix",
+      "passed": true,
+      "evidence": "Verify section: plan cache query on sys.dm_exec_procedure_stats + set_options, 'SET ARITHABORT OFF; -- match .NET SqlClient' to reuse the app's plan; 'Don't fix this by changing ARITHABORT in the app.'"
+    },
+    {
+      "text": "The response says the nightly 'Closed' export (11.4M rows) should get its own handling (separate proc, RECOMPILE, or different query) so it cannot poison the API plan",
+      "passed": true,
+      "evidence": "'Nightly export: own procedure, so it never compiles the plan the API reuses' with OPTION (RECOMPILE)."
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": true,
+      "evidence": "Issues table has Severity column: High, High (if confirmed), Medium, Low, Low (question)."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claim that row-mode memory grant feedback is unavailable on 2019 Standard is consistent with the 2019 editions matrix (IQP memory grant feedback is Enterprise-only). Extra low-severity items (SET NOCOUNT, paging) are reasonable, not false positives."
+}

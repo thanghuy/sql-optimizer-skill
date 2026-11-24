@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags the two correlated subqueries on orders as executing per customer row and rewrites them as a single aggregation (join to a GROUP BY subquery, or LATERAL)",
+      "passed": true,
+      "evidence": "Table #2: two correlated subqueries 'Each runs once per row the Limit node reads' -> 'Compute both values in one LATERAL aggregate'; rewrite uses `LEFT JOIN LATERAL (SELECT count(*), max(o.created_at) ...)`"
+    },
+    {
+      "text": "The response points out that orders.customer_id has no index and recommends one (e.g. (customer_id) or (customer_id, created_at))",
+      "passed": true,
+      "evidence": "Recommendation 1: `CREATE INDEX CONCURRENTLY orders_customer_id_created_at_idx ON orders (customer_id, created_at);`"
+    },
+    {
+      "text": "The response explains that NOT IN (SELECT customer_id FROM blacklist) with a nullable customer_id makes the query return no rows when any NULL exists, and replaces it with NOT EXISTS",
+      "passed": true,
+      "evidence": "Table #1: 'every customer is excluded and the query returns 0 rows whenever one NULL exists' -> `NOT EXISTS (SELECT 1 FROM blacklist b WHERE b.customer_id = c.id)`"
+    },
+    {
+      "text": "The response flags lower(c.email) = lower($1) as unable to use an index without an expression index and recommends CREATE INDEX ... (lower(email)) or citext",
+      "passed": true,
+      "evidence": "Table #3: 'A plain index on email can't be used for lower(email)' -> expression index on lower(email); 'Alternative: a citext column'"
+    },
+    {
+      "text": "The response flags OFFSET 50000 as reading and discarding rows and recommends keyset pagination (or questions why it is needed)",
+      "passed": true,
+      "evidence": "Table #4: 'reads, sorts and computes the subqueries for 50,020 rows and then discards 50,000' -> 'Keyset pagination: WHERE (c.created_at, c.id) < ($2, $3)'"
+    },
+    {
+      "text": "The response notices that the email equality filter returns at most a few customers, so ORDER BY created_at with OFFSET 50000 is suspicious (likely a bug or returns nothing)",
+      "passed": true,
+      "evidence": "Table #6: 'If emails are unique or nearly unique, the filter matches 0–few rows and page 2,501 is always empty'"
+    },
+    {
+      "text": "The response gives a full rewritten query applying the fixes",
+      "passed": true,
+      "evidence": "'Rewritten query' section gives full query with NOT EXISTS, keyset, LATERAL"
+    },
+    {
+      "text": "Every DDL and syntax in the response is valid on PostgreSQL 16 (e.g. CREATE INDEX CONCURRENTLY, LATERAL, NOT EXISTS), with nothing that needs a newer version",
+      "passed": true,
+      "evidence": "All valid on PG16: CREATE INDEX CONCURRENTLY, LEFT JOIN LATERAL, row comparison, EXPLAIN (GENERIC_PLAN) (added in PG16), partial index"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "'Issues found' table with Severity and Fix columns per row"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims on NOT IN hashed SubPlan falling back past work_mem and target-list subqueries evaluated for OFFSET rows are correct."
+}

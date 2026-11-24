@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MariaDB version and gives a command to get it (e.g. SELECT VERSION())",
+      "passed": true,
+      "evidence": "'First question: which exact MariaDB version is this? Run SELECT VERSION();'"
+    },
+    {
+      "text": "The response recommends an index led by status followed by due_date ASC and amount DESC, matching the mixed-direction ORDER BY",
+      "passed": true,
+      "evidence": "'ADD INDEX idx_status_due_amount (status, due_date ASC, amount DESC)'"
+    },
+    {
+      "text": "The response states that descending index parts are only honored from MariaDB 10.8 (older versions parse but ignore DESC, so the sort cannot be served by the index)",
+      "passed": true,
+      "evidence": "'MariaDB only supports descending index parts from 10.8 ... Older versions accept DESC in CREATE INDEX but ignore it'"
+    },
+    {
+      "text": "The response gives a concrete fallback for MariaDB < 10.8 (e.g. index (status, due_date) and sorting only the ties, or a persistent/virtual generated column such as negated amount)",
+      "passed": true,
+      "evidence": "Option B: B1 change sort, B2 'amount_neg ... AS (-amount) VIRTUAL' index, B3 covering + filesort, B4 upgrade"
+    },
+    {
+      "text": "The response does not recommend MySQL-8-only syntax as if it works in MariaDB (e.g. functional index key parts like INDEX ((expr)), or INVISIBLE instead of MariaDB's IGNORED)",
+      "passed": true,
+      "evidence": "Uses MariaDB 'ALTER INDEX idx_status IGNORED' (10.6+) and virtual generated columns; no functional key parts or INVISIBLE"
+    },
+    {
+      "text": "The response gives a MariaDB plan command for verification (ANALYZE FORMAT=JSON SELECT ... or EXPLAIN) and says what to look for (no filesort, rows vs r_rows)",
+      "passed": true,
+      "evidence": "EXPLAIN and 'ANALYZE FORMAT=JSON SELECT ...'; good plan: 'no Using filesort', 'r_rows around 100'"
+    },
+    {
+      "text": "The response asks for data volume / selectivity of status = 'overdue' or its distribution",
+      "passed": true,
+      "evidence": "'SELECT status, COUNT(*) FROM invoices GROUP BY status' under 'Data volume and skew'"
+    },
+    {
+      "text": "The response asks about traffic or write rate on invoices",
+      "passed": true,
+      "evidence": "'Traffic: how often is the page loaded ... Inserts and status updates per second on invoices?'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims checked: DESC indexes 10.8 (MDEV-13756, correct); IGNORED 10.6+ (correct); ANALYZE TABLE ... PERSISTENT FOR COLUMNS syntax valid MariaDB."
+}

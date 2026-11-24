@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies the estimate of 112 rows vs 479,812 actual on customers as the root cause of the slow nested loop",
+      "passed": true,
+      "evidence": "'112 rows estimated, 479,812 actual. That's about 4,300x too low'; 'the planner chooses a nested loop with 112 index probes... What actually runs is 479,812 probes'."
+    },
+    {
+      "text": "The response explains that the planner multiplies the selectivities of city and country as if independent, although Hanoi implies VN",
+      "passed": true,
+      "evidence": "'It then assumes the two columns are independent and multiplies their selectivities... Every Hanoi customer is in VN'."
+    },
+    {
+      "text": "The response recommends CREATE STATISTICS (dependencies and/or mcv) ON city, country FROM customers followed by ANALYZE",
+      "passed": true,
+      "evidence": "'CREATE STATISTICS customers_city_country_stx (dependencies, mcv) ON city, country FROM customers; ANALYZE customers;'"
+    },
+    {
+      "text": "The response says a composite index is not the main fix (at most secondary), since the misestimate is the problem",
+      "passed": true,
+      "evidence": "'Why a composite index isn't the answer... does not fix the row estimate.'"
+    },
+    {
+      "text": "The response explains that with a correct estimate the planner would choose a different join strategy for orders (e.g. hash join / scan of orders) instead of 480k index lookups",
+      "passed": true,
+      "evidence": "'The plan should switch to a Hash Join, probably a hash on the customer set with orders read sequentially'."
+    },
+    {
+      "text": "The response notes that autoanalyze already ran, so a plain ANALYZE / stale statistics is not the explanation",
+      "passed": true,
+      "evidence": "'The recent autoanalyze doesn't help. Plain ANALYZE only collects per-column statistics.'"
+    },
+    {
+      "text": "The response gives a verification step: re-run EXPLAIN (ANALYZE, BUFFERS) and check that the customers estimate is close to ~480k",
+      "passed": true,
+      "evidence": "'EXPLAIN (ANALYZE, BUFFERS) <your query>; The customers node should now estimate roughly 480k rows.'"
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": false,
+      "evidence": "No explicit severity labels; only a summary table with 'Fixes the 9 min?' Yes/No/Partial columns."
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "Did NOT notice the inconsistency; instead asserted the wrong arithmetic '9,000,000 x (480,100/9,000,000) x (2,100,500/9,000,000) ~ 112' (it actually equals ~112,000). This is a technical/arithmetic error in the explanation (not penalized per instructions). Otherwise none."
+}

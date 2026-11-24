@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response says idx_order_items_order_id is redundant with idx_order_items_order_product (leftmost prefix) and can be dropped",
+      "passed": true,
+      "evidence": "'idx_order_items_order_id ... Drop (after checks) | Redundant. (order_id) is the leftmost prefix of idx_order_items_order_product (order_id, product_id).'"
+    },
+    {
+      "text": "The response says to keep idx_payments_order_id because it backs the foreign key with ON DELETE CASCADE used by the nightly purge, even though idx_scan is 0",
+      "passed": true,
+      "evidence": "'idx_payments_order_id ... Keep | It is the only index on the FK column payments.order_id, which has ON DELETE CASCADE and a nightly purge... each of those becomes a sequential scan of payments.'"
+    },
+    {
+      "text": "The response says not to drop users_email_key because it enforces the UNIQUE constraint",
+      "passed": true,
+      "evidence": "'users_email_key ... Keep (it can't be dropped anyway) | It enforces UNIQUE (users.email).'"
+    },
+    {
+      "text": "The response points out that stats were reset 3 days ago, so idx_scan values do not cover a full workload cycle",
+      "passed": true,
+      "evidence": "'The window is 3 days... Three days misses every weekly, month-end and quarterly job.'"
+    },
+    {
+      "text": "The response points out that the read replica's index usage is not visible in the primary's pg_stat_user_indexes, so idx_orders_created_at may be used by the dashboards",
+      "passed": true,
+      "evidence": "'You only looked at the primary... a hot standby's index scans never appear in the primary's pg_stat_user_indexes'; idx_orders_created_at kept since replica dashboards likely use it."
+    },
+    {
+      "text": "The response uses DROP INDEX CONCURRENTLY for any index it says to drop",
+      "passed": true,
+      "evidence": "'DROP INDEX CONCURRENTLY IF EXISTS public.idx_order_items_order_id;'"
+    },
+    {
+      "text": "The response saves the index definitions (pg_get_indexdef) or gives CREATE INDEX CONCURRENTLY statements for rollback",
+      "passed": true,
+      "evidence": "Check (b) saves pg_get_indexdef 'for rollback'; rollback 'CREATE INDEX CONCURRENTLY idx_order_items_order_id ON public.order_items (order_id);'"
+    },
+    {
+      "text": "The response does not give a DROP statement for idx_payments_order_id or users_email_key as an action to run",
+      "passed": true,
+      "evidence": "Those DROPs appear only commented out under 'Statements I would not run' with '-- DO NOT RUN'."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Attribution of stats reset to an unclean restart during the instance change is speculative (an upgrade via pg_upgrade would also reset), but not wrong advice. Severity labels present though not asserted."
+}

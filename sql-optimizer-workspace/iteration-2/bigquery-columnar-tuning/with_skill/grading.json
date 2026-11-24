@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+      "passed": true,
+      "evidence": "'BigQuery has no CREATE INDEX that will fix this. There are no B-tree indexes' -> Partition + Cluster"
+    },
+    {
+      "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+      "passed": true,
+      "evidence": "'PARTITION BY DATE(event_ts)'"
+    },
+    {
+      "text": "The response recommends clustering with project_id as the first clustering column",
+      "passed": true,
+      "evidence": "'CLUSTER BY project_id, event_name' with 'The first cluster column prunes best'"
+    },
+    {
+      "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter) and warns it can break other existing queries",
+      "passed": true,
+      "evidence": "'require_partition_filter = TRUE' and 'Any Looker explore without a date filter will start erroring'"
+    },
+    {
+      "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+      "passed": true,
+      "evidence": "'You cannot add partitioning to an existing table in place' + CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT, rename swap"
+    },
+    {
+      "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) and notes that the dry-run estimate is an upper bound for clustered tables",
+      "passed": true,
+      "evidence": "bq --dry_run and INFORMATION_SCHEMA.JOBS; 'With a dry run you can see the exact upper bound (clustering pruning only shows up after the query runs)'"
+    },
+    {
+      "text": "If the response suggests a materialized view, it handles COUNT(DISTINCT) correctly (HLL/APPROX functions or a non-incremental alternative) rather than proposing an exact COUNT(DISTINCT) incremental MV; passes if no MV is proposed",
+      "passed": true,
+      "evidence": "MV uses HLL_COUNT.INIT/MERGE and states incremental MV 'does not support exact COUNT(DISTINCT)'; exact option is non-incremental MV or scheduled rollup"
+    },
+    {
+      "text": "The response estimates the expected reduction in bytes scanned and states the retention/size assumption behind it",
+      "passed": true,
+      "evidence": "'Assumed: the table holds ~2 years (≈730 days)' -> ~25 GB partitioned, ~0.1–0.5 GB clustered"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none significant. Possible nit: claim that require_partition_filter blocks MV creation/refresh is hedged ('test that ... works'), acceptable."
+}

@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: hard-postgres-correlated-stats
+expected_outcome: |
+  Root cause is misestimate from correlated city/country; fix with CREATE STATISTICS + ANALYZE, not a composite index; explains join choice; verification.

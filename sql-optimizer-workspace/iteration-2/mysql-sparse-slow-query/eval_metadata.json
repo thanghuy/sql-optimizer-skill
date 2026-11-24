@@ -1,0 +1,16 @@
+{
+  "eval_name": "mysql-sparse-slow-query",
+  "prompt": "query này chạy mất 4-5s trên prod (mysql), sếp kêu tối ưu gấp. index gì cho nhanh vậy?\n\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207 AND status IN ('paid','shipped') AND created_at >= '2026-10-01'\nORDER BY created_at DESC\nLIMIT 50 OFFSET 2000;",
+  "assertions": [
+    "The response asks for the exact MySQL version",
+    "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+    "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+    "The response asks about traffic (how often the query runs and/or write rate on orders)",
+    "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+    "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+    "If the response proposes ORDER BY created_at DESC, id DESC (keyset tie-breaker), its recommended index places id immediately after created_at (no other column between them); if it proposes no id tie-breaker this passes",
+    "Because the version is unknown, the response marks at least one version-dependent feature with its minimum version (e.g. EXPLAIN ANALYZE 8.0.18+, descending/invisible indexes 8.0+, EXPLAIN FORMAT=TREE 8.0.16+)",
+    "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+    "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)"
+  ]
+}

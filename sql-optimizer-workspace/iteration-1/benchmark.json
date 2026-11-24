@@ -1,0 +1,555 @@
+{
+  "metadata": {
+    "skill_name": "sql-optimizer",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-24T05:22:59Z",
+    "evals_run": [
+      "bigquery-columnar-tuning",
+      "mysql-sparse-slow-query",
+      "postgres-full-context-index-design",
+      "sqlserver-plan-reanalysis"
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": "bigquery-columnar-tuning",
+      "eval_name": "bigquery-columnar-tuning",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 124.5,
+        "tokens": 81654,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+          "passed": true,
+          "evidence": "'BigQuery doesn't have B-tree indexes, so there's no index to add... partition by `DATE(event_ts)` and cluster by `project_id`'"
+        },
+        {
+          "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+          "passed": true,
+          "evidence": "`PARTITION BY DATE(event_ts)`"
+        },
+        {
+          "text": "The response recommends clustering with project_id as the first clustering column",
+          "passed": true,
+          "evidence": "`CLUSTER BY project_id, event_name`; 'project_id | Equality | Cluster column #1'"
+        },
+        {
+          "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)",
+          "passed": true,
+          "evidence": "`require_partition_filter = TRUE -- block accidental full scans`"
+        },
+        {
+          "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+          "passed": true,
+          "evidence": "'You can't add partitioning to an existing table in place' + CTAS `CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT` + rename cutover steps"
+        },
+        {
+          "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after",
+          "passed": true,
+          "evidence": "Verify: `bq query --dry_run` before and after, then 'check `total_bytes_processed` and `total_bytes_billed` in `INFORMATION_SCHEMA.JOBS`'"
+        },
+        {
+          "text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh",
+          "passed": true,
+          "evidence": "Incremental materialized view with `HLL_COUNT.INIT`; also Looker datagroup caching and 'BI Engine is an option'"
+        },
+        {
+          "text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)",
+          "passed": true,
+          "evidence": "'Partition pruning alone: 8 of ~730 days \u2248 1.1% of 2.3 TB \u2248 ~25 GB... 1/300 of that would be under 1 GB'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mysql-sparse-slow-query",
+      "eval_name": "mysql-sparse-slow-query",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 9,
+        "failed": 0,
+        "total": 9,
+        "time_seconds": 114.7,
+        "tokens": 83853,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MySQL version",
+          "passed": true,
+          "evidence": "Asks 'Version: `SELECT VERSION();`. C\u00f3 ph\u1ea3i RDS ho\u1eb7c Aurora kh\u00f4ng?'"
+        },
+        {
+          "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+          "passed": true,
+          "evidence": "Asks for 'C\u1ea5u tr\u00fac v\u00e0 index hi\u1ec7n c\u00f3' with `SHOW CREATE TABLE orders\\G` and `SHOW INDEX FROM orders;`"
+        },
+        {
+          "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+          "passed": true,
+          "evidence": "Asks for table_rows from information_schema, `SELECT COUNT(*) FROM orders WHERE shop_id = 1207;` and status distribution via GROUP BY status"
+        },
+        {
+          "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+          "passed": true,
+          "evidence": "Traffic section: 'Query n\u00e0y ch\u1ea1y bao nhi\u00eau l\u1ea7n/gi\u00e2y...' and 'B\u1ea3ng `orders` c\u00f3 bao nhi\u00eau insert/update m\u1ed7i gi\u00e2y?'"
+        },
+        {
+          "text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)",
+          "passed": true,
+          "evidence": "Proposes `(shop_id, created_at, id, status, total, order_no)` and explains the trade-off vs `(shop_id, status, created_at, ...)` when paid+shipped is rare"
+        },
+        {
+          "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+          "passed": true,
+          "evidence": "'`status IN ('paid','shipped')` l\u00e0m m\u1ea5t th\u1ee9 t\u1ef1 sort... MySQL kh\u00f4ng merge 2 kho\u1ea3ng theo th\u1ee9 t\u1ef1 \u0111\u01b0\u1ee3c... r\u1ed3i **filesort**'"
+        },
+        {
+          "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+          "passed": true,
+          "evidence": "Section '2. S\u1eeda query: b\u1ecf `OFFSET`, d\u00f9ng keyset pagination' with seek predicate on (created_at, id)"
+        },
+        {
+          "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+          "passed": true,
+          "evidence": "Ki\u1ec3m ch\u1ee9ng section: EXPLAIN FORMAT=TREE and EXPLAIN ANALYZE 'Tr\u01b0\u1edbc v\u00e0 sau khi t\u1ea1o index', with expected plan (no Using filesort)"
+        },
+        {
+          "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+          "passed": true,
+          "evidence": "`ADD INDEX ... ALGORITHM=INPLACE, LOCK=NONE`; 'B\u1ea3ng r\u1ea5t l\u1edbn th\u00ec d\u00f9ng `gh-ost` / `pt-online-schema-change`'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres-full-context-index-design",
+      "eval_name": "postgres-full-context-index-design",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 140.0,
+        "tokens": 87447,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+          "passed": true,
+          "evidence": "`ON products (tenant_id, is_active, updated_at DESC, price)`; ESR table maps tenant_id/is_active=E, updated_at DESC=S, price=R"
+        },
+        {
+          "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+          "passed": true,
+          "evidence": "'Keep `is_active` in the key rather than using a partial index `WHERE is_active`. A partial index would only save about 15%...' plus prefix reuse argument"
+        },
+        {
+          "text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity",
+          "passed": true,
+          "evidence": "'Why ESR rather than E-R-S (`tenant_id, is_active, price, updated_at`)': ESR reads '24 / 0.30 \u2248 80' entries vs E-R-S '1.5M entries and then sorts'"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY",
+          "passed": true,
+          "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"
+        },
+        {
+          "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+          "passed": true,
+          "evidence": "'HOT updates are already lost whenever `price` changes, because `idx_products_price` exists... Updates that change only `updated_at` will stop being HOT'"
+        },
+        {
+          "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+          "passed": true,
+          "evidence": "Section 3: idx_products_tenant 'becomes redundant... DROP INDEX CONCURRENTLY'; idx_products_price 'do not drop it blindly. Check `idx_scan`'"
+        },
+        {
+          "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` plus sample good plan 'Limit -> Index Scan using ...' and 'There is no Sort node'"
+        },
+        {
+          "text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)",
+          "passed": true,
+          "evidence": "'Check the generic plan': `EXPLAIN (GENERIC_PLAN)` and `SET plan_cache_mode = force_generic_plan; PREPARE p(...)`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "sqlserver-plan-reanalysis",
+      "eval_name": "sqlserver-plan-reanalysis",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 135.5,
+        "tokens": 94179,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+          "passed": true,
+          "evidence": "'The index is in **E-R-S** order... Rows come out ordered by `CreatedAt ASC`, but you need `Priority DESC, CreatedAt DESC`'; spill row explains Sort"
+        },
+        {
+          "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+          "passed": true,
+          "evidence": "`ON dbo.Tickets (AssigneeId ASC, Priority DESC, CreatedAt DESC)` with ESR mapping"
+        },
+        {
+          "text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup",
+          "passed": false,
+          "evidence": "Explicitly declines covering: 'Why I'm not adding `INCLUDE (Subject)` yet: with an ordered index, the Key Lookup runs only for the ~20 rows'. Reasoned trade-off, but it does not recommend INCLUDE/covering to remove the Key Lookup"
+        },
+        {
+          "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+          "passed": true,
+          "evidence": "'Estimated 1,850 vs actual 41,233 | This is a cardinality problem: parameter sniffing...' plus stats freshness check via sys.dm_db_stats_properties"
+        },
+        {
+          "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since",
+          "passed": true,
+          "evidence": "Good-plan expectation 'about 20 for option 1 in the good case, \u2264 80 for option 2', and the weakness: if top priority has <20 recent tickets 'the scan keeps reading that priority's *old* tickets'"
+        },
+        {
+          "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+          "passed": true,
+          "evidence": "'Then deal with the old index (don't drop it blindly)': check dm_db_index_usage_stats, then `ALTER INDEX IX_Tickets_Assignee_Created ... DISABLE` before dropping"
+        },
+        {
+          "text": "The response mentions building online (ONLINE = ON) and/or its edition requirement",
+          "passed": true,
+          "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise`"
+        },
+        {
+          "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+          "passed": true,
+          "evidence": "Verify section with `SET STATISTICS IO, TIME ON`, actual plan, before/after table with 'Logical reads 131,904 | (fill in)' and 'Send me the new plan and these numbers'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "bigquery-columnar-tuning",
+      "eval_name": "bigquery-columnar-tuning",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 91.8,
+        "tokens": 66760,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+          "passed": true,
+          "evidence": "'BigQuery has no B-tree indexes... Partition the table by day and cluster it by `project_id`'"
+        },
+        {
+          "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+          "passed": true,
+          "evidence": "`PARTITION BY DATE(event_ts)`"
+        },
+        {
+          "text": "The response recommends clustering with project_id as the first clustering column",
+          "passed": true,
+          "evidence": "`CLUSTER BY project_id, event_name, user_id`; '`project_id` goes first because it's the filter you nearly always use'"
+        },
+        {
+          "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)",
+          "passed": true,
+          "evidence": "`require_partition_filter = TRUE -- stops anyone from scanning the full table again by accident`"
+        },
+        {
+          "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+          "passed": true,
+          "evidence": "'You can't add partitioning to an existing table, so create a new one and swap it in' + CTAS + rename/backfill steps"
+        },
+        {
+          "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after",
+          "passed": true,
+          "evidence": "'Expected impact (rough, verify with a dry run)' and 'Look at the actual *bytes billed* in the job details or `INFORMATION_SCHEMA.JOBS` after it runs' (before/after comparison implied, less explicit than with_skill)"
+        },
+        {
+          "text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh",
+          "passed": true,
+          "evidence": "Daily rollup with HLL_COUNT sketches, materialized view option, Looker datagroup caching, 'BI Engine reservations'"
+        },
+        {
+          "text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)",
+          "passed": true,
+          "evidence": "'Partitioning cuts the scan to about 8 days divided by your total history... roughly 1%'; 'expect the 2.3 TB to fall to somewhere between a few GB and a few tens of GB'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "mysql-sparse-slow-query",
+      "eval_name": "mysql-sparse-slow-query",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.889,
+        "passed": 8,
+        "failed": 1,
+        "total": 9,
+        "time_seconds": 73.2,
+        "tokens": 65460,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response asks for the exact MySQL version",
+          "passed": true,
+          "evidence": "Item 3: 'Phi\u00ean b\u1ea3n MySQL (`SELECT VERSION();`)'"
+        },
+        {
+          "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+          "passed": true,
+          "evidence": "Item 1: '`SHOW CREATE TABLE orders;` (\u0111\u1ec3 xem index hi\u1ec7n c\u00f3)'"
+        },
+        {
+          "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+          "passed": true,
+          "evidence": "Item 4: 'B\u1ea3ng c\u00f3 kho\u1ea3ng bao nhi\u00eau d\u00f2ng, shop 1207 c\u00f3 bao nhi\u00eau \u0111\u01a1n t\u1eeb 01/10' and item 5 status GROUP BY distribution"
+        },
+        {
+          "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+          "passed": false,
+          "evidence": "No question about query frequency or write rate on orders; item 6 asks only about page-jump vs next/prev API behaviour. Write cost is mentioned only as 'l\u00e0m ghi ch\u1eadm h\u01a1n m\u1ed9t ch\u00fat'"
+        },
+        {
+          "text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)",
+          "passed": true,
+          "evidence": "Recommends `(shop_id, created_at, status)` with explicit rationale vs `(shop_id, status, created_at)` and the rare-status exception"
+        },
+        {
+          "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+          "passed": true,
+          "evidence": "'N\u1ebfu `status` \u0111\u1ee9ng tr\u01b0\u1edbc `created_at` th\u00ec MySQL ph\u1ea3i qu\u00e9t 2 kho\u1ea3ng ri\u00eang... **ph\u1ea3i gom h\u1ebft c\u00e1c d\u00f2ng kh\u1edbp r\u1ed3i filesort**'"
+        },
+        {
+          "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+          "passed": true,
+          "evidence": "'C\u00e1ch B: keyset / seek pagination (t\u1ed1t nh\u1ea5t, nh\u01b0ng ph\u1ea3i s\u1eeda API)' plus explanation that OFFSET reads 2050 rows"
+        },
+        {
+          "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+          "passed": true,
+          "evidence": "'Ki\u1ec3m tra tr\u01b0\u1edbc v\u00e0 sau b\u1eb1ng: EXPLAIN SELECT ...; EXPLAIN ANALYZE SELECT ...; -- MySQL 8.0.18+'"
+        },
+        {
+          "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+          "passed": true,
+          "evidence": "'`ALGORITHM=INPLACE, LOCK=NONE`... c\u00e2n nh\u1eafc `gh-ost` ho\u1eb7c `pt-online-schema-change`'"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "postgres-full-context-index-design",
+      "eval_name": "postgres-full-context-index-design",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 99.4,
+        "tokens": 70319,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+          "passed": true,
+          "evidence": "`ON products (tenant_id, updated_at DESC, price) WHERE is_active` with price as key column after the sort column"
+        },
+        {
+          "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+          "passed": true,
+          "evidence": "Partial index: '`WHERE is_active` | The query has the literal `is_active = true`, so the planner can match the partial index, and this holds for generic plans too'"
+        },
+        {
+          "text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity",
+          "passed": true,
+          "evidence": "Rejected `(tenant_id, price, updated_at)`: 'rows come out in price order, so Postgres still has to sort about 1.5M rows'; ESR reads '24 / 0.30 \u2248 80 index tuples'"
+        },
+        {
+          "text": "The response uses CREATE INDEX CONCURRENTLY",
+          "passed": true,
+          "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"
+        },
+        {
+          "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+          "passed": true,
+          "evidence": "Write-side impact section: '`price` is already indexed... those updates are **already non-HOT**. The new index adds one more index insertion per update'"
+        },
+        {
+          "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+          "passed": true,
+          "evidence": "'Clean up the old indexes (after verification)': check idx_scan for both, caveat that idx_products_tenant still serves inactive rows, `DROP INDEX CONCURRENTLY idx_products_price`"
+        },
+        {
+          "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+          "passed": true,
+          "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` with expected 'Limit -> Index Scan ...' and '**No `Sort` node**'"
+        },
+        {
+          "text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)",
+          "passed": true,
+          "evidence": "'The generic plan (important, because it's a prepared statement)': `EXPLAIN (GENERIC_PLAN)`, `plan_cache_mode = force_generic_plan`"
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "sqlserver-plan-reanalysis",
+      "eval_name": "sqlserver-plan-reanalysis",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 78.8,
+        "tokens": 68855,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+          "passed": true,
+          "evidence": "'The index is keyed `(AssigneeId, CreatedAt, Priority)`... rows come out ordered by `CreatedAt`. The query wants them ordered by `Priority DESC, CreatedAt DESC`'"
+        },
+        {
+          "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+          "passed": true,
+          "evidence": "`ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)`"
+        },
+        {
+          "text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup",
+          "passed": true,
+          "evidence": "`INCLUDE (Subject)`; '`INCLUDE (Subject)` removes the Key Lookup'"
+        },
+        {
+          "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+          "passed": true,
+          "evidence": "'The optimizer estimated 1,850 rows and got 41,233... Parameter sniffing... Stale or low-sample statistics'"
+        },
+        {
+          "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since",
+          "passed": true,
+          "evidence": "Caveat: residual predicate is cheap only if the top-priority bucket has >=20 tickets since @Since, else 'the scan walks through all of those old rows'; Step 2 'at most 20 \u00d7 (number of priorities)'"
+        },
+        {
+          "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+          "passed": true,
+          "evidence": "Step 3: check usage DMV and Query Store; 'If only this query used it, drop it'"
+        },
+        {
+          "text": "The response mentions building online (ONLINE = ON) and/or its edition requirement",
+          "passed": true,
+          "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise edition`"
+        },
+        {
+          "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+          "passed": true,
+          "evidence": "Step 4: 'Run the query for your busiest agent with `SET STATISTICS IO, TIME ON` and the actual plan... Logical reads in the tens, not hundreds of thousands'"
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.9688,
+        "stddev": 0.0625,
+        "min": 0.875,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 128.675,
+        "stddev": 11.3661,
+        "min": 114.7,
+        "max": 140.0
+      },
+      "tokens": {
+        "mean": 86783.25,
+        "stddev": 5478.2373,
+        "min": 81654,
+        "max": 94179
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.9723,
+        "stddev": 0.0555,
+        "min": 0.889,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 85.8,
+        "stddev": 11.9544,
+        "min": 73.2,
+        "max": 99.4
+      },
+      "tokens": {
+        "mean": 67848.5,
+        "stddev": 2160.7234,
+        "min": 65460,
+        "max": 70319
+      }
+    },
+    "delta": {
+      "pass_rate": "-0.00",
+      "time_seconds": "+42.9",
+      "tokens": "+18935"
+    }
+  },
+  "notes": [
+    "Assertions do not discriminate: both configs pass 32/33; postgres and bigquery saturate at 100% for both.",
+    "Real quality difference not captured: mysql baseline's index (shop_id, created_at, status) cannot serve ORDER BY created_at, id for keyset paging; with_skill put id right after created_at.",
+    "with_skill asked about traffic in the sparse mysql case; baseline did not (the skill's Step 4).",
+    "sqlserver with_skill failed the INCLUDE(Subject) assertion by a reasoned choice (only ~20 lookups remain after reordering) \u2014 assertion is too rigid.",
+    "with_skill costs ~+43s and ~+19k tokens per run (reading references + doc fetches); baseline did no web lookups, with_skill fetched official docs in all 4 cases.",
+    "Baseline had minor factual slips (TB vs TiB, CPU-core math); with_skill had none flagged."
+  ]
+}

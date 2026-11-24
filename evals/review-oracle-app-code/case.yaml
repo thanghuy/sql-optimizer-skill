@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: review-oracle-app-code
+expected_outcome: |
+  Finds N+1 loop, missing bind variables (hard parse + SQL injection), TO_CHAR on indexed date, VARCHAR2 vs number implicit TO_NUMBER, SELECT *; gives rewritten code with binds and one join.

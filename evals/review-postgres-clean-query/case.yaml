@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: review-postgres-clean-query
+expected_outcome: |
+  Recognizes the query is already well optimized (index scan feeding LIMIT, no sort, 24 buffers, 0.09 ms), does not invent problems or new indexes.

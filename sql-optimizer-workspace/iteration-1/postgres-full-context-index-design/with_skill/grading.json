@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+      "passed": true,
+      "evidence": "`ON products (tenant_id, is_active, updated_at DESC, price)`; ESR table maps tenant_id/is_active=E, updated_at DESC=S, price=R"
+    },
+    {
+      "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+      "passed": true,
+      "evidence": "'Keep `is_active` in the key rather than using a partial index `WHERE is_active`. A partial index would only save about 15%...' plus prefix reuse argument"
+    },
+    {
+      "text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity",
+      "passed": true,
+      "evidence": "'Why ESR rather than E-R-S (`tenant_id, is_active, price, updated_at`)': ESR reads '24 / 0.30 ≈ 80' entries vs E-R-S '1.5M entries and then sorts'"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY",
+      "passed": true,
+      "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"
+    },
+    {
+      "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+      "passed": true,
+      "evidence": "'HOT updates are already lost whenever `price` changes, because `idx_products_price` exists... Updates that change only `updated_at` will stop being HOT'"
+    },
+    {
+      "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+      "passed": true,
+      "evidence": "Section 3: idx_products_tenant 'becomes redundant... DROP INDEX CONCURRENTLY'; idx_products_price 'do not drop it blindly. Check `idx_scan`'"
+    },
+    {
+      "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` plus sample good plan 'Limit -> Index Scan using ...' and 'There is no Sort node'"
+    },
+    {
+      "text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)",
+      "passed": true,
+      "evidence": "'Check the generic plan': `EXPLAIN (GENERIC_PLAN)` and `SET plan_cache_mode = force_generic_plan; PREPARE p(...)`"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none"
+}

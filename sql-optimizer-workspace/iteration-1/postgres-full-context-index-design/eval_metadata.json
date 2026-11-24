@@ -1,0 +1,14 @@
+{
+  "eval_name": "postgres-full-context-index-design",
+  "prompt": "We're on PostgreSQL 16.4 (AWS RDS). This endpoint is our hottest read path and p95 is ~900ms, target is <50ms.\n\nQuery (prepared statement from our Go service):\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\nORDER BY updated_at DESC\nLIMIT 24;\n\nTable:\nCREATE TABLE products (\n  id bigserial PRIMARY KEY,\n  tenant_id int NOT NULL,\n  title text NOT NULL,\n  description text,\n  price numeric(12,2) NOT NULL,\n  is_active boolean NOT NULL DEFAULT true,\n  updated_at timestamptz NOT NULL,\n  created_at timestamptz NOT NULL\n);\nExisting indexes: products_pkey (id), idx_products_tenant (tenant_id), idx_products_price (price).\n\nData: 42M rows, ~1,800 tenants, the biggest tenant has 6M products. ~85% of rows are is_active = true. A typical price range filter matches ~30% of a tenant's active products.\nTraffic: ~1,200 calls/sec at peak, the products table gets ~150 updates/sec (mostly price and updated_at) and ~20 inserts/sec.\n\nWhat index(es) should we create and how do we verify it worked?",
+  "assertions": [
+    "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+    "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+    "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity",
+    "The response uses CREATE INDEX CONCURRENTLY",
+    "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+    "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+    "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+    "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)"
+  ]
+}

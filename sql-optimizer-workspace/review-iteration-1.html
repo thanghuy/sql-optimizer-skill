@@ -1,0 +1,1330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eval Review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600&family=Lora:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      --bg: #faf9f5;
+      --surface: #ffffff;
+      --border: #e8e6dc;
+      --text: #141413;
+      --text-muted: #b0aea5;
+      --accent: #d97757;
+      --accent-hover: #c4613f;
+      --green: #788c5d;
+      --green-bg: #eef2e8;
+      --red: #c44;
+      --red-bg: #fceaea;
+      --header-bg: #141413;
+      --header-text: #faf9f5;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Lora', Georgia, serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Header ---- */
+    .header {
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .header h1 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+    .header .instructions {
+      font-size: 0.8rem;
+      opacity: 0.7;
+      margin-top: 0.25rem;
+    }
+    .header .progress {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-align: right;
+    }
+
+    /* ---- Main content ---- */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* ---- Sections ---- */
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      flex-shrink: 0;
+    }
+    .section-header {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.75rem 1rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .section-body {
+      padding: 1rem;
+    }
+
+    /* ---- Config badge ---- */
+    .config-badge {
+      display: inline-block;
+      padding: 0.2rem 0.625rem;
+      border-radius: 9999px;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-left: 0.75rem;
+      vertical-align: middle;
+    }
+    .config-badge.config-primary {
+      background: rgba(33, 150, 243, 0.12);
+      color: #1976d2;
+    }
+    .config-badge.config-baseline {
+      background: rgba(255, 193, 7, 0.15);
+      color: #f57f17;
+    }
+
+    /* ---- Prompt ---- */
+    .prompt-text {
+      white-space: pre-wrap;
+      font-size: 0.9375rem;
+      line-height: 1.6;
+    }
+
+    /* ---- Outputs ---- */
+    .output-file {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .output-file + .output-file {
+      margin-top: 1rem;
+    }
+    .output-file-header {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .output-file-header .dl-btn {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      cursor: pointer;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-weight: 500;
+      opacity: 0.8;
+    }
+    .output-file-header .dl-btn:hover {
+      opacity: 1;
+      text-decoration: underline;
+    }
+    .output-file-content {
+      padding: 0.75rem;
+      overflow-x: auto;
+    }
+    .output-file-content pre {
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+    .output-file-content img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+    }
+    .output-file-content iframe {
+      width: 100%;
+      height: 600px;
+      border: none;
+    }
+    .output-file-content table {
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+    .output-file-content table td,
+    .output-file-content table th {
+      border: 1px solid var(--border);
+      padding: 0.375rem 0.5rem;
+      text-align: left;
+    }
+    .output-file-content table th {
+      background: var(--bg);
+      font-weight: 600;
+    }
+    .output-file-content .download-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.875rem;
+      cursor: pointer;
+    }
+    .output-file-content .download-link:hover {
+      background: var(--border);
+    }
+    .empty-state {
+      color: var(--text-muted);
+      font-style: italic;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    /* ---- Feedback ---- */
+    .prev-feedback {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.625rem 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.8125rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .prev-feedback-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.25rem;
+      color: var(--text-muted);
+    }
+    .feedback-textarea {
+      width: 100%;
+      min-height: 100px;
+      padding: 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      line-height: 1.5;
+      resize: vertical;
+      color: var(--text);
+    }
+    .feedback-textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .feedback-status {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+      min-height: 1.1em;
+    }
+
+    /* ---- Grades (collapsible) ---- */
+    .grades-toggle {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+    }
+    .grades-toggle:hover {
+      color: var(--accent);
+    }
+    .grades-toggle .arrow {
+      margin-right: 0.5rem;
+      transition: transform 0.15s;
+      font-size: 0.75rem;
+    }
+    .grades-toggle .arrow.open {
+      transform: rotate(90deg);
+    }
+    .grades-content {
+      display: none;
+      margin-top: 0.75rem;
+    }
+    .grades-content.open {
+      display: block;
+    }
+    .grades-summary {
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .grade-badge {
+      display: inline-block;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .grade-pass { background: var(--green-bg); color: var(--green); }
+    .grade-fail { background: var(--red-bg); color: var(--red); }
+    .assertion-list {
+      list-style: none;
+    }
+    .assertion-item {
+      padding: 0.625rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8125rem;
+    }
+    .assertion-item:last-child { border-bottom: none; }
+    .assertion-status {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    .assertion-status.pass { color: var(--green); }
+    .assertion-status.fail { color: var(--red); }
+    .assertion-evidence {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.25rem;
+      padding-left: 1.5rem;
+    }
+
+    /* ---- View tabs ---- */
+    .view-tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .view-tab {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      background: none;
+      color: var(--text-muted);
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .view-tab:hover { color: var(--text); }
+    .view-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+    .view-panel { display: none; }
+    .view-panel.active { display: flex; flex-direction: column; flex: 1; overflow: hidden; }
+
+    /* ---- Benchmark view ---- */
+    .benchmark-view {
+      padding: 1.5rem 2rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .benchmark-table {
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 0.8125rem;
+      width: 100%;
+      margin-bottom: 1.5rem;
+    }
+    .benchmark-table th, .benchmark-table td {
+      padding: 0.625rem 0.75rem;
+      text-align: left;
+      border: 1px solid var(--border);
+    }
+    .benchmark-table th {
+      font-family: 'Poppins', sans-serif;
+      background: var(--header-bg);
+      color: var(--header-text);
+      font-weight: 500;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .benchmark-table tr:hover { background: var(--bg); }
+    .benchmark-table tr.benchmark-row-with { background: rgba(33, 150, 243, 0.06); }
+    .benchmark-table tr.benchmark-row-without { background: rgba(255, 193, 7, 0.06); }
+    .benchmark-table tr.benchmark-row-with:hover { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-without:hover { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-table tr.benchmark-row-avg { font-weight: 600; border-top: 2px solid var(--border); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-with { background: rgba(33, 150, 243, 0.12); }
+    .benchmark-table tr.benchmark-row-avg.benchmark-row-without { background: rgba(255, 193, 7, 0.12); }
+    .benchmark-delta-positive { color: var(--green); font-weight: 600; }
+    .benchmark-delta-negative { color: var(--red); font-weight: 600; }
+    .benchmark-notes {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+    }
+    .benchmark-notes h3 {
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.875rem;
+      margin-bottom: 0.75rem;
+    }
+    .benchmark-notes ul {
+      list-style: disc;
+      padding-left: 1.25rem;
+    }
+    .benchmark-notes li {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      margin-bottom: 0.375rem;
+    }
+    .benchmark-empty {
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3rem;
+    }
+
+    /* ---- Navigation ---- */
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2rem;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .nav-btn:hover:not(:disabled) {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .nav-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .done-btn {
+      font-family: 'Poppins', sans-serif;
+      padding: 0.5rem 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .done-btn:hover {
+      background: var(--bg);
+      border-color: var(--text-muted);
+    }
+    .done-btn.ready {
+      border: none;
+      background: var(--accent);
+      color: white;
+      font-weight: 600;
+    }
+    .done-btn.ready:hover {
+      background: var(--accent-hover);
+    }
+    /* ---- Done overlay ---- */
+    .done-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .done-overlay.visible {
+      display: flex;
+    }
+    .done-card {
+      background: var(--surface);
+      border-radius: 12px;
+      padding: 2rem 3rem;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+    }
+    .done-card h2 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .done-card p {
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .done-card .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+    .done-card button {
+      padding: 0.5rem 1.25rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .done-card button:hover {
+      background: var(--bg);
+    }
+    /* ---- Toast ---- */
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--header-bg);
+      color: var(--header-text);
+      padding: 0.625rem 1.25rem;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .toast.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="app" style="height:100vh; display:flex; flex-direction:column;">
+    <div class="header">
+      <div>
+        <h1>Eval Review: <span id="skill-name"></span></h1>
+        <div class="instructions">Review each output and leave feedback below. Navigate with arrow keys or buttons. When done, copy feedback and paste into Claude Code.</div>
+      </div>
+      <div class="progress" id="progress"></div>
+    </div>
+
+    <!-- View tabs (only shown when benchmark data exists) -->
+    <div class="view-tabs" id="view-tabs" style="display:none;">
+      <button class="view-tab active" onclick="switchView('outputs')">Outputs</button>
+      <button class="view-tab" onclick="switchView('benchmark')">Benchmark</button>
+    </div>
+
+    <!-- Outputs panel (qualitative review) -->
+    <div class="view-panel active" id="panel-outputs">
+    <div class="main">
+      <!-- Prompt -->
+      <div class="section">
+        <div class="section-header">Prompt <span class="config-badge" id="config-badge" style="display:none;"></span></div>
+        <div class="section-body">
+          <div class="prompt-text" id="prompt-text"></div>
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="section">
+        <div class="section-header">Output</div>
+        <div class="section-body" id="outputs-body">
+          <div class="empty-state">No output files found</div>
+        </div>
+      </div>
+
+      <!-- Previous Output (collapsible) -->
+      <div class="section" id="prev-outputs-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="togglePrevOutputs()">
+            <span class="arrow" id="prev-outputs-arrow">&#9654;</span>
+            Previous Output
+          </div>
+        </div>
+        <div class="grades-content" id="prev-outputs-content"></div>
+      </div>
+
+      <!-- Grades (collapsible) -->
+      <div class="section" id="grades-section" style="display:none;">
+        <div class="section-header">
+          <div class="grades-toggle" onclick="toggleGrades()">
+            <span class="arrow" id="grades-arrow">&#9654;</span>
+            Formal Grades
+          </div>
+        </div>
+        <div class="grades-content" id="grades-content"></div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="section">
+        <div class="section-header">Your Feedback</div>
+        <div class="section-body">
+          <textarea
+            class="feedback-textarea"
+            id="feedback"
+            placeholder="What do you think of this output? Any issues, suggestions, or things that look great?"
+          ></textarea>
+          <div class="feedback-status" id="feedback-status"></div>
+          <div class="prev-feedback" id="prev-feedback" style="display:none;">
+            <div class="prev-feedback-label">Previous feedback</div>
+            <div id="prev-feedback-text"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav" id="outputs-nav">
+      <button class="nav-btn" id="prev-btn" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="done-btn" id="done-btn" onclick="showDoneDialog()">Submit All Reviews</button>
+      <button class="nav-btn" id="next-btn" onclick="navigate(1)">Next &#8594;</button>
+    </div>
+    </div><!-- end panel-outputs -->
+
+    <!-- Benchmark panel (quantitative stats) -->
+    <div class="view-panel" id="panel-benchmark">
+      <div class="benchmark-view" id="benchmark-content">
+        <div class="benchmark-empty">No benchmark data available. Run a benchmark to see quantitative results here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Done overlay -->
+  <div class="done-overlay" id="done-overlay">
+    <div class="done-card">
+      <h2>Review Complete</h2>
+      <p>Your feedback has been saved. Go back to your Claude Code session and tell Claude you're done reviewing.</p>
+      <div class="btn-row">
+        <button onclick="closeDoneDialog()">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ---- Embedded data (injected by generate_review.py) ----
+    const EMBEDDED_DATA = {"skill_name": "sql-optimizer", "runs": [{"id": "bigquery-columnar-tuning-with_skill", "prompt": "our bigquery bill exploded, this dashboard query scans ~2.3 TB every time it runs (looker refreshes it every 15 min). table is `analytics.events`, ~9 billion rows, not partitioned, not clustered. columns: event_id STRING, event_ts TIMESTAMP, project_id STRING, user_id STRING, event_name STRING, country STRING, properties JSON.\n\nSELECT event_name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS users\nFROM analytics.events\nWHERE project_id = 'prj_8812'\n  AND DATE(event_ts) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()\nGROUP BY event_name\nORDER BY n DESC;\n\nwe have ~300 projects, almost every query filters on project_id and a time window. what index should i add?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "Short answer: **BigQuery doesn't have B-tree indexes, so there's no index to add that fixes this.** What fixes it is the table's physical layout: **partition by `DATE(event_ts)` and cluster by `project_id`** (plus `event_name`), then make one small change to the query. With your access pattern (\"almost every query filters on project_id and a time window\"), this should cut the scan from ~2.3 TB to a few GB or less per run. A pre-aggregated table can bring it down to MB.\n\n(I checked the current BigQuery docs on partition pruning and materialized views. Links are at the end.)\n\n---\n\n## Diagnosis\n\n- **What it costs now.** BigQuery bills on-demand queries by bytes read from the columns you reference. This query reads 4 columns (`project_id`, `event_ts`, `event_name`, `user_id`) across **all 9B rows**. It has to, because the table has no partitioning or clustering, so neither filter can skip any storage. `properties` JSON isn't read, which is why you're at 2.3 TB and not more.\n- **What it costs per month.** Looker runs it every 15 minutes, which is 96 runs/day \u00d7 ~2.3 TB \u2248 **~220 TB/day**. At the US on-demand list price (~$6.25/TiB, check your region and contract) that's roughly **$1.2\u20131.3k per day, or ~$38k per month, for this one tile.** If the dashboard runs once per project, or has several tiles like this, multiply accordingly.\n- **Why an index is the wrong tool.** BigQuery's \"search indexes\" are for needle-in-haystack lookups (`SEARCH()`, `=` on high-cardinality strings, such as finding one `event_id`). They aren't for \"aggregate one project over 7 days\". The equivalent of an index here:\n  - **Range filter (the time window) \u2192 partition column.**\n  - **Equality filter (`project_id`) \u2192 first clustering column.**\n  - The GROUP BY column (`event_name`) \u2192 second clustering column, which helps the aggregation a little.\n\n## Recommendation\n\n### 1. Rebuild the table as partitioned and clustered (the main fix)\n\nYou can't add partitioning to an existing table in place, so you create a new table and swap it in:\n\n```sql\nCREATE TABLE analytics.events_v2\nPARTITION BY DATE(event_ts)\nCLUSTER BY project_id, event_name\nOPTIONS (\n  require_partition_filter = TRUE        -- block accidental full scans\n  -- , partition_expiration_days = 730   -- only if you have a retention policy\n)\nAS\nSELECT * FROM analytics.events;\n```\n\nThen cut over during a quiet window:\n\n1. Pause or point the writers (streaming / load jobs) at `events_v2`, or dual-write for a short time.\n2. Backfill any rows that arrived after the CTAS ran (`INSERT ... SELECT ... WHERE event_ts > \u003cctas snapshot time>`).\n3. `ALTER TABLE analytics.events RENAME TO events_old;` then `ALTER TABLE analytics.events_v2 RENAME TO events;`\n4. Keep `events_old` for a few days as a rollback, then drop it.\n\n**Layout mapping:**\n\n| Column | Role in the query | Placement | Why |\n|---|---|---|---|\n| `event_ts` | Range (time window) | Partition: `DATE(event_ts)`, daily | Almost every query has it. Pruning partitions skips whole days of storage. |\n| `project_id` | Equality | Cluster column #1 | Filtered on almost every query. Pruning works best on the first clustering column. With ~300 projects, a single project is a small slice of each day. |\n| `event_name` | GROUP BY | Cluster column #2 | Rows are co-located by event name, so less shuffle work. Also helps queries that filter `project_id = ? AND event_name = ?`. |\n\nOptional: if you often filter or join on `user_id` within a project, add it as cluster column #3. Clustering order matters, and later columns only prune when the earlier ones are also filtered.\n\n**Expected effect.** This is an estimate, because I don't know your retention yet. Say the table holds about 2 years: 9B rows / ~730 days \u2248 12M rows/day.\n- Partition pruning alone: 8 of ~730 days \u2248 1.1% of 2.3 TB \u2248 **~25 GB**.\n- Clustering on `project_id`: if projects were evenly sized, 1/300 of that would be **under 1 GB**. In practice, large projects read more and small ones read close to the minimum block size.\n- Overall, roughly **100\u00d7 to over 1000\u00d7 fewer bytes**, and the dashboard also gets faster.\n\n**Cost of the change:**\n- The CTAS scans the whole table once (all columns, including `properties`). That's roughly what 1\u20132 dashboard refreshes cost today.\n- Storage is duplicated until you drop `events_old`.\n- Automatic re-clustering in the background is free. Freshly streamed data may be slightly less well clustered until it runs.\n- `require_partition_filter = TRUE` makes every query without a filter on `event_ts` **fail**, including views and other dashboards. Run step 1 of \"Verify\" first to find those queries, or leave this option off at the start and enable it later.\n\n**Check the partition size.** BigQuery works best when partitions average roughly 1 GB or more. If a day is much smaller than that, use `PARTITION BY TIMESTAMP_TRUNC(event_ts, MONTH)` and add `event_ts` as a clustering column, or keep daily partitions if your time windows are usually days. Daily partitioning also has a per-table partition count limit (currently 10,000, check the quotas page). That covers about 27 years of daily data, so it's fine here.\n\n**Rollback:** rename `events_old` back to `events`.\n\n### 2. Rewrite the filter as a plain range on the column\n\n```sql\nSELECT event_name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS users\nFROM analytics.events\nWHERE project_id = 'prj_8812'\n  AND event_ts >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY))\n  AND event_ts \u003c  TIMESTAMP(DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY))\nGROUP BY event_name\nORDER BY n DESC;\n```\n\n- The docs say pruning works for `DATE(col) = ...` on a column partitioned by `DATE(col)`, and recommend a dry run to confirm other forms. A bare range on `event_ts` is guaranteed to prune and also helps any clustering on `event_ts`.\n- Check that the window is what you intended. `BETWEEN today-7 AND today` is **8 calendar days** (7 full days plus today so far), in **UTC**. If your dashboard is in another timezone, use `CURRENT_DATE('America/New_York')` and the matching `TIMESTAMP(..., 'tz')`.\n- `ORDER BY n DESC` without a LIMIT is fine here. The result is only a few hundred event names.\n\n### 3. For a dashboard that refreshes every 15 minutes, pre-aggregate it\n\nEven after step 1, you're re-reading 8 days of raw events 96 times a day to recompute numbers that barely change. Keep a daily rollup instead.\n\n`COUNT(DISTINCT user_id)` can't be summed across days, so you need one of these two:\n\n**a) Approximate distinct users with an incremental materialized view.** `HLL_COUNT.INIT` and `COUNT` are supported in incremental MVs. Exact `COUNT(DISTINCT)` is not.\n\n```sql\nCREATE MATERIALIZED VIEW analytics.events_daily_mv\nPARTITION BY event_date\nCLUSTER BY project_id, event_name\nAS\nSELECT DATE(event_ts) AS event_date, project_id, event_name,\n       COUNT(*) AS n,\n       HLL_COUNT.INIT(user_id) AS users_sketch\nFROM analytics.events\nGROUP BY event_date, project_id, event_name;\n```\n\nThe dashboard query then becomes:\n\n```sql\nSELECT event_name, SUM(n) AS n, HLL_COUNT.MERGE(users_sketch) AS users\nFROM analytics.events_daily_mv\nWHERE project_id = 'prj_8812'\n  AND event_date BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()\nGROUP BY event_name\nORDER BY n DESC;\n```\n\nThis reads KB to MB per run. Distinct counts are within about 1% at the default precision. The MV refreshes incrementally, and today's partition is combined with fresh base-table data automatically.\n\n**b) If you need exact distinct users,** use a scheduled query (or an incremental Looker PDT/dbt model) that maintains a daily table of `(event_date, project_id, event_name, user_id)` with one row per distinct user per day. The dashboard then runs `COUNT(*)`-style sums plus `COUNT(DISTINCT user_id)` over that much smaller table, which should still be far smaller than raw events.\n\nAlso on the Looker side:\n- Set a datagroup or caching policy so the tile doesn't re-query faster than the data actually needs to be fresh.\n- BigQuery's own result cache won't help here, because queries using `CURRENT_DATE()` aren't cached.\n- BI Engine is an option if you need sub-second response.\n\n## Verify\n\n1. **Find every query that will be affected** (and the next most expensive ones):\n   ```sql\n   SELECT query_info.query_hashes.normalized_literals AS qh, COUNT(*) AS runs,\n          SUM(total_bytes_billed)/POW(1024,4) AS tib_billed, ANY_VALUE(query) AS sample\n   FROM `region-us`.INFORMATION_SCHEMA.JOBS\n   WHERE creation_time > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)\n     AND job_type = 'QUERY'\n     AND REGEXP_CONTAINS(query, r'analytics\\.events')\n   GROUP BY qh ORDER BY tib_billed DESC LIMIT 30;\n   ```\n2. **Dry run before and after:** `bq query --dry_run --use_legacy_sql=false '\u003cquery>'`. After partitioning, the estimate should drop to about 8 days' worth of those 4 columns. Note that **dry run does not account for clustering pruning**, so it overstates the cost on clustered tables.\n3. **Measure the actual bytes.** Run the query once with `--nouse_cache`, then check `total_bytes_processed` and `total_bytes_billed` in `INFORMATION_SCHEMA.JOBS` for that `job_id`. Good result: a few GB or less, versus 2.3 TB now. Also look at **Execution details**: the input stage's records read should be close to that project's 8-day row count, not 9B.\n4. If bytes are still high, send me the `job_id` stage stats (`job_stages`: `records_read`, `slot_ms`, `shuffle_output_bytes_spilled`) and I'll look at what isn't pruning.\n\n## Assumptions / open questions\n\nThese numbers would sharpen the estimates above. If you don't have them, the recommendation still stands.\n\n1. **Size and retention:**\n   ```sql\n   SELECT total_rows, total_logical_bytes/POW(1024,4) AS tib\n   FROM `region-us`.INFORMATION_SCHEMA.TABLE_STORAGE\n   WHERE table_schema='analytics' AND table_name='events';\n   SELECT MIN(event_ts), MAX(event_ts) FROM analytics.events;  -- reads one column only\n   ```\n2. **Project skew.** Are a few projects most of the data? (`SELECT project_id, COUNT(*) ... GROUP BY 1 ORDER BY 2 DESC LIMIT 20`)\n3. **How data arrives:** streaming (Storage Write API or `insertAll`), batch loads, or frequent DML? This affects the cutover plan and how fresh the clustering stays.\n4. **Pricing model:** on-demand (per TB) or editions/slots? On-demand makes the bytes savings direct money. On slots, the gain shows up as less slot time and less contention.\n5. **Exact or approximate distinct users:** is about 1% error acceptable? That decides option 3a or 3b.\n6. **Timezone and window:** is the 8-day UTC window intended?\n\nDocs referenced:\n- Querying partitioned tables / pruning: https://cloud.google.com/bigquery/docs/querying-partitioned-tables\n- Clustered tables: https://cloud.google.com/bigquery/docs/clustered-tables\n- Materialized views (supported aggregates): https://cloud.google.com/bigquery/docs/materialized-views-create\n- Search indexes (and why they don't fit here): https://cloud.google.com/bigquery/docs/search-index\n"}], "grading": {"expectations": [{"text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix", "passed": true, "evidence": "'BigQuery doesn't have B-tree indexes, so there's no index to add... partition by `DATE(event_ts)` and cluster by `project_id`'"}, {"text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)", "passed": true, "evidence": "`PARTITION BY DATE(event_ts)`"}, {"text": "The response recommends clustering with project_id as the first clustering column", "passed": true, "evidence": "`CLUSTER BY project_id, event_name`; 'project_id | Equality | Cluster column #1'"}, {"text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)", "passed": true, "evidence": "`require_partition_filter = TRUE -- block accidental full scans`"}, {"text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place", "passed": true, "evidence": "'You can't add partitioning to an existing table in place' + CTAS `CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT` + rename cutover steps"}, {"text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after", "passed": true, "evidence": "Verify: `bq query --dry_run` before and after, then 'check `total_bytes_processed` and `total_bytes_billed` in `INFORMATION_SCHEMA.JOBS`'"}, {"text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh", "passed": true, "evidence": "Incremental materialized view with `HLL_COUNT.INIT`; also Looker datagroup caching and 'BI Engine is an option'"}, {"text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)", "passed": true, "evidence": "'Partition pruning alone: 8 of ~730 days \u2248 1.1% of 2.3 TB \u2248 ~25 GB... 1/300 of that would be under 1 GB'"}], "summary": {"passed": 8, "failed": 0, "total": 8, "pass_rate": 1.0}, "overall_notes": "none"}}, {"id": "bigquery-columnar-tuning-without_skill", "prompt": "our bigquery bill exploded, this dashboard query scans ~2.3 TB every time it runs (looker refreshes it every 15 min). table is `analytics.events`, ~9 billion rows, not partitioned, not clustered. columns: event_id STRING, event_ts TIMESTAMP, project_id STRING, user_id STRING, event_name STRING, country STRING, properties JSON.\n\nSELECT event_name, COUNT(*) AS n, COUNT(DISTINCT user_id) AS users\nFROM analytics.events\nWHERE project_id = 'prj_8812'\n  AND DATE(event_ts) BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()\nGROUP BY event_name\nORDER BY n DESC;\n\nwe have ~300 projects, almost every query filters on project_id and a time window. what index should i add?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "Short answer: **don't add an index. Partition the table by day and cluster it by `project_id`.** In BigQuery, that's what fixes this.\n\n## Why an index won't help\n\nBigQuery has no B-tree indexes. It stores data by column and bills you for the bytes in every column a query touches, across every block it can't skip. Today the table has no partitions and no clustering, so BigQuery can't skip anything. Each run reads all ~9B rows of `project_id`, `event_ts`, `event_name` and `user_id`, even though you only want one project's last 7 days.\n\n(BigQuery does have `CREATE SEARCH INDEX`, but it's built for needle-in-a-haystack text and JSON lookups, such as finding one `event_id`. It doesn't help a scan and aggregation like this one.)\n\nThe tools that cut bytes scanned are:\n\n| Feature | What it skips | Fit here |\n|---|---|---|\n| **Partitioning** on `DATE(event_ts)` | Every day outside the time window | You always filter on a time window |\n| **Clustering** on `project_id` (then `event_name`) | Storage blocks for other projects inside each day | You almost always filter on `project_id`, and there are about 300 of them |\n\nTogether they turn \"scan the whole history for all 300 projects\" into \"scan about 8 days for one project.\"\n\n## 1. Rebuild the table as partitioned and clustered\n\nYou can't add partitioning to an existing table, so create a new one and swap it in:\n\n```sql\nCREATE TABLE analytics.events_new\nPARTITION BY DATE(event_ts)\nCLUSTER BY project_id, event_name, user_id\nOPTIONS (\n  require_partition_filter = TRUE        -- stops anyone from scanning the full table again by accident\n  -- , partition_expiration_days = 730   -- optional: if you don't need data forever\n)\nAS\nSELECT * FROM analytics.events;\n```\n\nNotes:\n- **Clustering order matters.** `project_id` goes first because it's the filter you nearly always use. `event_name` is next because you group by it. `user_id` last helps the `COUNT(DISTINCT user_id)` a little. Up to 4 clustering columns are allowed.\n- **This rebuild is one full scan of the table** (properties JSON included, so it will be more than 2.3 TB). Do it once. If you're on on-demand pricing, that costs about the same as a few dashboard refreshes.\n- **Repoint your ingestion** (streaming, Dataflow, load jobs, dbt model and so on) at the new table. Then swap the names: rename `events` to `events_old` and `events_new` to `events`, using `ALTER TABLE ... RENAME TO`. Backfill any rows that arrived during the cutover, and drop the old table once you've verified the new one.\n- If the table is built by dbt, set `partition_by` and `cluster_by` in the model config rather than running hand-written DDL.\n- Daily partitions are well within limits (BigQuery allows 10,000 partitions per table, roughly 27 years of daily partitions). If you have many years of history, `PARTITION BY TIMESTAMP_TRUNC(event_ts, MONTH)` is the alternative, but daily suits 7-day windows better.\n\n## 2. Make the query prune cleanly (and fix a small bug)\n\n```sql\nSELECT\n  event_name,\n  COUNT(*)                AS n,\n  COUNT(DISTINCT user_id) AS users\nFROM analytics.events\nWHERE project_id = 'prj_8812'\n  AND event_ts >= TIMESTAMP(DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY))\n  AND event_ts \u003c  TIMESTAMP(DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY))\nGROUP BY event_name\nORDER BY n DESC;\n```\n\n- `DATE(event_ts) BETWEEN ...` does prune partitions when the table is partitioned on `DATE(event_ts)`. A plain range on the raw timestamp, as above, is the most reliable way to get pruning, so make it your habit.\n- **Off-by-one:** `BETWEEN today-7 AND today` covers **8** calendar days: 7 full days plus today so far. If you meant \"last 7 days including today,\" use `INTERVAL 6 DAY`. Check what the dashboard is supposed to show.\n- **Time zone:** `CURRENT_DATE()` and `DATE()` use UTC. If the dashboard should follow a local day, use `CURRENT_DATE('America/New_York')` and set the same zone in the bounds.\n- Keep `properties` out of dashboard queries unless you actually need it. You already do, which is good: in a columnar store, columns you don't select cost nothing.\n\n## Expected impact (rough, verify with a dry run)\n\n- **Partitioning** cuts the scan to about 8 days divided by your total history. With 2 years of data, that's roughly 1% of the table.\n- **Clustering on `project_id`** cuts it again by about this project's share of the rows in those days. With ~300 projects, a typical project might be well under 1% of the data. A very large project could be much more, since event data is usually skewed.\n- Realistically, expect the 2.3 TB to fall to somewhere between **a few GB and a few tens of GB** per run.\n\nFor scale: 2.3 TB \u00d7 96 refreshes a day \u2248 **220 TB/day**. At on-demand list price (about $6.25/TB in US multi-region) that's roughly **$1,400/day, or about $40k/month**, from this one tile.\n\nOne caveat on measuring: for clustered tables, the dry-run and \"This query will process...\" estimate is an **upper bound**. Clustering pruning happens at run time. Look at the actual *bytes billed* in the job details or `INFORMATION_SCHEMA.JOBS` after it runs.\n\n## 3. Stop paying for every refresh\n\nEven after the rebuild, this query is a good candidate to cache or pre-aggregate:\n\n1. **Your query can't use BigQuery's free result cache.** Queries that call `CURRENT_DATE()` or `CURRENT_TIMESTAMP()` are never cached, so each of the 96 daily refreshes runs and bills in full. Two fixes:\n   - **Looker caching:** set a `datagroup` with a `max_cache_age`, or a `sql_trigger` that checks `MAX(event_ts)` or the table's last-modified time. The dashboard then re-queries only when data has changed, or on a schedule you choose. Ask whether a 7-day trend really needs refreshing every 15 minutes; hourly is often fine.\n   - Or have Looker inject literal dates instead of `CURRENT_DATE()`, so identical queries can hit BigQuery's cache. Streaming inserts into the table still invalidate that cache.\n2. **Pre-aggregate.** Build a small daily rollup by project, day and event name, and point the dashboard at it:\n   ```sql\n   CREATE TABLE analytics.events_daily\n   PARTITION BY day\n   CLUSTER BY project_id, event_name AS\n   SELECT\n     DATE(event_ts)              AS day,\n     project_id,\n     event_name,\n     COUNT(*)                    AS n,\n     HLL_COUNT.INIT(user_id)     AS users_sketch   -- distinct users can't be summed across days; sketches can be merged\n   FROM analytics.events\n   WHERE event_ts >= TIMESTAMP('2000-01-01')        -- needed because of require_partition_filter\n   GROUP BY 1, 2, 3;\n   ```\n   The dashboard query becomes:\n   ```sql\n   SELECT event_name, SUM(n) AS n, HLL_COUNT.MERGE(users_sketch) AS users\n   FROM analytics.events_daily\n   WHERE project_id = 'prj_8812'\n     AND day BETWEEN DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND CURRENT_DATE()\n   GROUP BY event_name\n   ORDER BY n DESC;\n   ```\n   That reads kilobytes to megabytes. Keep the rollup current with a scheduled query, or with an incremental dbt model that rebuilds today and yesterday. You could also use a **materialized view**: BigQuery refreshes it incrementally and can rewrite matching queries to use it automatically.\n   - **Trade-off:** `HLL_COUNT` gives an *approximate* distinct count, typically within about 1% at the default precision. If you need exact distinct users, roll up to `(day, project_id, event_name, user_id)` instead and count distinct over that. It's bigger, but still far smaller than the raw table.\n3. **Optional:** if you have many dashboards like this, BI Engine reservations or a move from on-demand to capacity (slot) pricing can cap the bill. Partitioning and clustering are the fix you need first, though.\n\n## Order of operations\n\n1. Rebuild `analytics.events` partitioned by `DATE(event_ts)` and clustered by `project_id, event_name, user_id`, with `require_partition_filter`.\n2. Rewrite the filter as a raw `event_ts` range and fix the 7-versus-8-day window.\n3. Set a Looker datagroup so the dashboard isn't billed 96 times a day.\n4. For dashboard tiles that hit this table constantly, add a daily rollup or materialized view.\n\nStep 1 alone should cut this query's cost by about two orders of magnitude or more. Steps 3 and 4 bring the rest close to zero. Look across your other ~300-project queries too: they filter the same way, so they all benefit from step 1 automatically.\n"}], "grading": {"expectations": [{"text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix", "passed": true, "evidence": "'BigQuery has no B-tree indexes... Partition the table by day and cluster it by `project_id`'"}, {"text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)", "passed": true, "evidence": "`PARTITION BY DATE(event_ts)`"}, {"text": "The response recommends clustering with project_id as the first clustering column", "passed": true, "evidence": "`CLUSTER BY project_id, event_name, user_id`; '`project_id` goes first because it's the filter you nearly always use'"}, {"text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)", "passed": true, "evidence": "`require_partition_filter = TRUE -- stops anyone from scanning the full table again by accident`"}, {"text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place", "passed": true, "evidence": "'You can't add partitioning to an existing table, so create a new one and swap it in' + CTAS + rename/backfill steps"}, {"text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after", "passed": true, "evidence": "'Expected impact (rough, verify with a dry run)' and 'Look at the actual *bytes billed* in the job details or `INFORMATION_SCHEMA.JOBS` after it runs' (before/after comparison implied, less explicit than with_skill)"}, {"text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh", "passed": true, "evidence": "Daily rollup with HLL_COUNT sketches, materialized view option, Looker datagroup caching, 'BI Engine reservations'"}, {"text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)", "passed": true, "evidence": "'Partitioning cuts the scan to about 8 days divided by your total history... roughly 1%'; 'expect the 2.3 TB to fall to somewhere between a few GB and a few tens of GB'"}], "summary": {"passed": 8, "failed": 0, "total": 8, "pass_rate": 1.0}, "overall_notes": "Minor: on-demand price quoted as '$6.25/TB' (it is per TiB). Claim that clustering on user_id 'helps the COUNT(DISTINCT user_id) a little' is dubious. No SQL syntax errors."}}, {"id": "mysql-sparse-slow-query-with_skill", "prompt": "query n\u00e0y ch\u1ea1y m\u1ea5t 4-5s tr\u00ean prod (mysql), s\u1ebfp k\u00eau t\u1ed1i \u01b0u g\u1ea5p. index g\u00ec cho nhanh v\u1eady?\n\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207 AND status IN ('paid','shipped') AND created_at >= '2026-10-01'\nORDER BY created_at DESC\nLIMIT 50 OFFSET 2000;", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "M\u00ecnh \u0111\u01b0a lu\u00f4n m\u1ed9t index c\u00f3 th\u1ec3 t\u1ea1o ngay, k\u00e8m c\u00e1ch ki\u1ec3m ch\u1ee9ng. Hi\u1ec7n b\u1ea1n ch\u01b0a g\u1eedi schema, index \u0111ang c\u00f3, s\u1ed1 d\u00f2ng hay plan, n\u00ean ph\u1ea7n d\u01b0\u1edbi d\u1ef1a tr\u00ean **gi\u1ea3 \u0111\u1ecbnh** (ghi r\u00f5 \u1edf cu\u1ed1i). G\u1eedi th\u00eam v\u00e0i th\u00f4ng tin \u1edf m\u1ee5c \"C\u1ea7n b\u1ea1n g\u1eedi\" th\u00ec m\u00ecnh ch\u1ed1t l\u1ea1i cho ch\u1eafc, tr\u00e1nh t\u1ea1o nh\u1ea7m index tr\u00ean prod.\n\n## Ch\u1ea9n \u0111o\u00e1n (t\u1ea1m th\u1eddi, ch\u01b0a c\u00f3 plan)\n\nQuery c\u00f3 3 v\u1ea5n \u0111\u1ec1:\n\n1. **`status IN ('paid','shipped')` l\u00e0m m\u1ea5t th\u1ee9 t\u1ef1 sort.** N\u1ebfu index l\u00e0 `(shop_id, status, created_at)` (ki\u1ec3u index hay \u0111\u01b0\u1ee3c t\u1ea1o nh\u1ea5t), MySQL seek \u0111\u01b0\u1ee3c 2 kho\u1ea3ng (paid, shipped). Nh\u01b0ng m\u1ed7i kho\u1ea3ng c\u00f3 th\u1ee9 t\u1ef1 `created_at` ri\u00eang, MySQL kh\u00f4ng merge 2 kho\u1ea3ng theo th\u1ee9 t\u1ef1 \u0111\u01b0\u1ee3c. V\u00ec v\u1eady n\u00f3 ph\u1ea3i \u0111\u1ecdc **to\u00e0n b\u1ed9** \u0111\u01a1n paid/shipped c\u1ee7a shop t\u1eeb 01/10, r\u1ed3i **filesort**, r\u1ed3i m\u1edbi c\u1eaft LIMIT. N\u1ebfu ch\u1ec9 c\u00f3 index `(shop_id)` ho\u1eb7c kh\u00f4ng c\u00f3 index ph\u00f9 h\u1ee3p th\u00ec c\u00f2n t\u1ec7 h\u01a1n: \u0111\u1ecdc h\u1ebft \u0111\u01a1n c\u1ee7a shop, lookup t\u1eebng d\u00f2ng v\u1ec1 b\u1ea3ng, r\u1ed3i sort.\n2. **`OFFSET 2000`**: MySQL ph\u1ea3i \u0111\u1ecdc v\u00e0 b\u1ecf \u0111i 2000 d\u00f2ng tr\u01b0\u1edbc khi tr\u1ea3 50 d\u00f2ng. Trang c\u00e0ng s\u00e2u c\u00e0ng ch\u1eadm.\n3. **Kh\u00f4ng covering**: m\u1ed7i d\u00f2ng \u0111\u1ecdc t\u1eeb index l\u1ea1i ph\u1ea3i quay v\u1ec1 clustered index (PK) \u0111\u1ec3 l\u1ea5y `order_no`, `total`. H\u00e0ng ngh\u00ecn l\u1ea7n random I/O nh\u01b0 v\u1eady d\u1ec5 l\u00ean v\u00e0i gi\u00e2y.\n\n## \u0110\u1ec1 xu\u1ea5t\n\n### 1. Index ch\u00ednh (theo ESR, c\u00f3 \u0111i\u1ec1u ch\u1ec9nh v\u00ec `IN`)\n\n```sql\nALTER TABLE orders\n  ADD INDEX idx_orders_shop_created_cover (shop_id, created_at, id, status, total, order_no),\n  ALGORITHM=INPLACE, LOCK=NONE;\n```\n\nVai tr\u00f2 t\u1eebng c\u1ed9t theo ESR:\n- **E** = `shop_id`: \u0111i\u1ec1u ki\u1ec7n b\u1eb1ng.\n- **S** = `created_at`: tr\u00f9ng v\u1edbi `ORDER BY created_at DESC`. C\u1ed9t n\u00e0y \u0111\u1ed3ng th\u1eddi l\u00e0 **R** (`>= '2026-10-01'`). V\u00ec sort v\u00e0 range n\u1eb1m tr\u00ean c\u00f9ng m\u1ed9t c\u1ed9t n\u00ean \u0111\u1eb7t ngay sau E l\u00e0 t\u1ed1i \u01b0u: MySQL seek t\u1edbi `shop_id = 1207`, qu\u00e9t ng\u01b0\u1ee3c t\u1eeb m\u1edbi nh\u1ea5t v\u1ec1 01/10, v\u00e0 **d\u1eebng s\u1edbm** khi \u0111\u1ee7 2050 d\u00f2ng kh\u1edbp. Kh\u00f4ng c\u00f3 filesort.\n- `id`: th\u00eam t\u01b0\u1eddng minh \u0111\u1ec3 th\u1ee9 t\u1ef1 trong index l\u00e0 `(created_at, id)`. Nh\u1edd v\u1eady keyset pagination \u1edf b\u01b0\u1edbc 2 v\u1edbi tie-breaker `id` c\u0169ng kh\u00f4ng ph\u1ea3i sort. Trong InnoDB, PK v\u1ed1n \u0111\u01b0\u1ee3c n\u1ed1i v\u00e0o cu\u1ed1i m\u1ecdi secondary index; khai b\u00e1o t\u01b0\u1eddng minh \u1edf \u0111\u00e2y th\u00ec InnoDB kh\u00f4ng l\u01b0u th\u00eam l\u1ea7n n\u1eefa, ch\u1ec9 \u0111\u1ed5i v\u1ecb tr\u00ed c\u1ee7a n\u00f3.\n- `status`: **c\u1ed1 \u00fd kh\u00f4ng \u0111\u1eb7t tr\u01b0\u1edbc `created_at`**. \u0110\u00e2y l\u00e0 ngo\u1ea1i l\u1ec7 c\u1ee7a ESR: `IN` nhi\u1ec1u gi\u00e1 tr\u1ecb \u0111\u1ee9ng tr\u01b0\u1edbc c\u1ed9t sort s\u1ebd g\u00e2y filesort. \u1ede v\u1ecb tr\u00ed n\u00e0y, `status` \u0111\u01b0\u1ee3c l\u1ecdc ngay trong index, kh\u00f4ng c\u1ea7n \u0111\u1ecdc b\u1ea3ng.\n- `total`, `order_no`: \u0111\u1ec3 index **covering**. K\u1ef3 v\u1ecdng EXPLAIN hi\u1ec7n `Using index`, kh\u00f4ng lookup v\u1ec1 b\u1ea3ng.\n\nHi\u1ec7u qu\u1ea3 k\u1ef3 v\u1ecdng: s\u1ed1 entry ph\u1ea3i \u0111\u1ecdc \u2248 2050 \u00d7 (s\u1ed1 \u0111\u01a1n c\u1ee7a shop t\u1eeb 01/10 \u00f7 s\u1ed1 \u0111\u01a1n paid+shipped trong \u0111\u00f3). N\u1ebfu paid+shipped chi\u1ebfm kho\u1ea3ng 50\u201390% \u0111\u01a1n (th\u01b0\u1eddng g\u1eb7p), MySQL ch\u1ec9 \u0111\u1ecdc kho\u1ea3ng 2\u20134 ngh\u00ecn entry trong index. Query th\u01b0\u1eddng s\u1ebd xu\u1ed1ng m\u1ee9c v\u00e0i ms \u0111\u1ebfn v\u00e0i ch\u1ee5c ms.\n\nKhi n\u00e0o index n\u00e0y **kh\u00f4ng** t\u1ed1t nh\u1ea5t: khi paid+shipped r\u1ea5t hi\u1ebfm, v\u00ed d\u1ee5 d\u01b0\u1edbi 2\u20135% \u0111\u01a1n c\u1ee7a shop t\u1eeb 01/10. L\u00fac \u0111\u00f3 qu\u00e9t theo th\u1eddi gian ph\u1ea3i b\u1ecf qua qu\u00e1 nhi\u1ec1u d\u00f2ng. Ph\u01b0\u01a1ng \u00e1n ng\u01b0\u1ee3c l\u1ea1i, `(shop_id, status, created_at, total, order_no)` (seek \u0111\u00fang 2 status r\u1ed3i filesort m\u1ed9t t\u1eadp nh\u1ecf), s\u1ebd r\u1ebb h\u01a1n. V\u00ec v\u1eady m\u00ecnh c\u1ea7n s\u1ed1 li\u1ec7u ph\u00e2n b\u1ed1 `status` \u1edf d\u01b0\u1edbi.\n\nChi ph\u00ed:\n- Th\u00eam 1 secondary index: m\u1ed7i INSERT, v\u00e0 m\u1ed7i UPDATE \u0111\u1ed5i `status`/`total`/`order_no`, t\u1ed1n th\u00eam m\u1ed9t l\u1ea7n ghi index. B\u1ea3ng orders th\u01b0\u1eddng \u0111\u1ed5i `status` v\u00e0i l\u1ea7n trong v\u00f2ng \u0111\u1eddi \u0111\u01a1n, n\u00ean m\u1ee9c n\u00e0y th\u01b0\u1eddng ch\u1ea5p nh\u1eadn \u0111\u01b0\u1ee3c, nh\u01b0ng c\u1ea7n bi\u1ebft l\u01b0\u1ee3ng ghi/gi\u00e2y.\n- Dung l\u01b0\u1ee3ng: kho\u1ea3ng (8 + 5 + 8 + ~10 + 8 + \u0111\u1ed9 d\u00e0i `order_no`) byte \u00d7 s\u1ed1 d\u00f2ng. V\u00ed d\u1ee5 50M d\u00f2ng, kho\u1ea3ng 60\u201370 B/entry, t\u1ee9c c\u1ee1 3\u20134 GB. L\u00fac build c\u1ea7n th\u00eam temp space c\u1ee1 \u0111\u00f3.\n- Build online v\u1edbi `LOCK=NONE` v\u1eabn t\u1ed1n I/O v\u00e0 c\u00f3 th\u1ec3 g\u00e2y replication lag tr\u00ean b\u1ea3ng l\u1edbn. N\u00ean ch\u1ea1y ngo\u00e0i gi\u1edd cao \u0111i\u1ec3m. B\u1ea3ng r\u1ea5t l\u1edbn th\u00ec d\u00f9ng `gh-ost` / `pt-online-schema-change`.\n\nN\u1ebfu b\u1ea3ng ghi r\u1ea5t nhi\u1ec1u v\u00e0 b\u1ea1n mu\u1ed1n index g\u1ecdn h\u01a1n: `(shop_id, created_at, status)` v\u1eabn b\u1ecf \u0111\u01b0\u1ee3c filesort, ch\u1ec9 m\u1ea5t ph\u1ea7n covering, n\u00ean v\u1eabn ph\u1ea3i lookup kho\u1ea3ng 2050 d\u00f2ng v\u1ec1 PK.\n\nRollback: th\u1eed tr\u01b0\u1edbc b\u1eb1ng c\u00e1ch t\u1eaft index, r\u1ed3i xo\u00e1 n\u1ebfu kh\u00f4ng c\u1ea7n.\n```sql\nALTER TABLE orders ALTER INDEX idx_orders_shop_created_cover INVISIBLE;  -- MySQL 8.0+, t\u1eaft m\u00e0 kh\u00f4ng xo\u00e1\nALTER TABLE orders DROP INDEX idx_orders_shop_created_cover, ALGORITHM=INPLACE, LOCK=NONE;\n```\n\nSau khi index m\u1edbi ch\u1ea1y \u1ed5n v\u00e0i ng\u00e0y, ki\u1ec3m tra index c\u0169 d\u1ea1ng `(shop_id)` ho\u1eb7c `(shop_id, created_at)`. \u0110\u00f3 l\u00e0 leftmost prefix c\u1ee7a index m\u1edbi n\u00ean th\u01b0\u1eddng th\u1eeba (tr\u1eeb khi ph\u1ee5c v\u1ee5 foreign key). Xem `sys.schema_unused_indexes` / `sys.schema_redundant_indexes`, cho INVISIBLE tr\u01b0\u1edbc, r\u1ed3i m\u1edbi DROP.\n\n### 2. S\u1eeda query: b\u1ecf `OFFSET`, d\u00f9ng keyset pagination\n\n`OFFSET 2000` l\u00e0 chi ph\u00ed c\u1ed1 \u0111\u1ecbnh kh\u00f4ng index n\u00e0o xo\u00e1 \u0111\u01b0\u1ee3c, v\u00e0 trang c\u00e0ng s\u00e2u c\u00e0ng ch\u1eadm. B\u1ea1n n\u00ean cho app nh\u1edb d\u00f2ng cu\u1ed1i c\u1ee7a trang tr\u01b0\u1edbc (`created_at`, `id`) r\u1ed3i l\u1ea5y trang ti\u1ebfp theo nh\u01b0 sau:\n\n```sql\n-- Trang \u0111\u1ea7u\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207\n  AND status IN ('paid','shipped')\n  AND created_at >= '2026-10-01'\nORDER BY created_at DESC, id DESC\nLIMIT 50;\n\n-- Trang sau: :last_created_at, :last_id = d\u00f2ng cu\u1ed1i c\u1ee7a trang tr\u01b0\u1edbc\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207\n  AND status IN ('paid','shipped')\n  AND created_at >= '2026-10-01'\n  AND (created_at \u003c :last_created_at\n       OR (created_at = :last_created_at AND id \u003c :last_id))\nORDER BY created_at DESC, id DESC\nLIMIT 50;\n```\n\n- Th\u00eam `id DESC` \u0111\u1ec3 th\u1ee9 t\u1ef1 \u1ed5n \u0111\u1ecbnh. Nhi\u1ec1u \u0111\u01a1n c\u00f9ng `created_at` s\u1ebd kh\u00f4ng b\u1ecb l\u1eb7p ho\u1eb7c m\u1ea5t gi\u1eefa c\u00e1c trang (query hi\u1ec7n t\u1ea1i c\u00f3 r\u1ee7i ro n\u00e0y).\n- Vi\u1ebft d\u1ea1ng `OR` thay cho `(created_at, id) \u003c (?, ?)`, v\u00ec MySQL kh\u00f4ng ph\u1ea3i l\u00fac n\u00e0o c\u0169ng d\u00f9ng range scan cho row constructor.\n- C\u1ed9t `id` \u0111\u1eb7t ngay sau `created_at` trong index \u1edf tr\u00ean ch\u00ednh l\u00e0 \u0111\u1ec3 ph\u1ee5c v\u1ee5 `ORDER BY created_at DESC, id DESC` n\u00e0y m\u00e0 kh\u00f4ng c\u1ea7n sort.\n- \u0110\u1ed5i ki\u1ec3u ph\u00e2n trang \u1ea3nh h\u01b0\u1edfng UI (kh\u00f4ng nh\u1ea3y th\u1eb3ng t\u1edbi \"trang 41\" \u0111\u01b0\u1ee3c), n\u00ean c\u1ea7n b\u00e0n v\u1edbi team app. N\u1ebfu bu\u1ed9c ph\u1ea3i gi\u1eef OFFSET th\u00ec index \u1edf m\u1ee5c 1 v\u1eabn gi\u00fap nhi\u1ec1u, v\u00ec 2050 entry covering \u0111\u1ecdc r\u1ea5t nhanh.\n\nL\u01b0u \u00fd nh\u1ecf: n\u1ebfu `created_at` l\u00e0 `DATETIME`/`TIMESTAMP` th\u00ec so v\u1edbi chu\u1ed7i `'2026-10-01'` v\u1eabn d\u00f9ng index b\u00ecnh th\u01b0\u1eddng. N\u1ebfu n\u00f3 l\u00e0 `VARCHAR` th\u00ec c\u1ea7n b\u00e1o m\u00ecnh. Ki\u1ec3u `status` (ENUM hay VARCHAR) kh\u00f4ng \u1ea3nh h\u01b0\u1edfng, mi\u1ec5n kh\u00f4ng b\u1ecdc h\u00e0m quanh c\u1ed9t.\n\n## Ki\u1ec3m ch\u1ee9ng\n\nCh\u1ea1y tr\u00ean staging c\u00f3 d\u1eef li\u1ec7u gi\u1ed1ng prod, ho\u1eb7c tr\u00ean replica. `EXPLAIN ANALYZE` **th\u1ef1c thi** query; v\u1edbi SELECT th\u00ec an to\u00e0n v\u1ec1 d\u1eef li\u1ec7u, nh\u01b0ng v\u1eabn t\u1ed1n t\u00e0i nguy\u00ean nh\u01b0 ch\u1ea1y th\u1eadt.\n\n```sql\nSELECT VERSION();\n\n-- Tr\u01b0\u1edbc v\u00e0 sau khi t\u1ea1o index\nEXPLAIN FORMAT=TREE\nSELECT id, order_no, total, status, created_at FROM orders\nWHERE shop_id = 1207 AND status IN ('paid','shipped') AND created_at >= '2026-10-01'\nORDER BY created_at DESC LIMIT 50 OFFSET 2000;\n\nEXPLAIN ANALYZE                -- MySQL 8.0.18+\nSELECT id, order_no, total, status, created_at FROM orders\nWHERE shop_id = 1207 AND status IN ('paid','shipped') AND created_at >= '2026-10-01'\nORDER BY created_at DESC LIMIT 50 OFFSET 2000;\n\n-- \u0110\u1ebfm s\u1ed1 d\u00f2ng \u0111\u1ecdc th\u1ef1c t\u1ebf\nFLUSH STATUS;\nSELECT ... ;                   -- ch\u1ea1y l\u1ea1i query\nSHOW SESSION STATUS LIKE 'Handler_read%';\n```\n\nPlan t\u1ed1t s\u1ebd c\u00f3:\n- `key = idx_orders_shop_created_cover`, `type = range`.\n- `Extra` c\u00f3 `Using index` (covering), c\u00f3 th\u1ec3 k\u00e8m `Backward index scan`, v\u00e0 **kh\u00f4ng** c\u00f3 `Using filesort`.\n- Trong `EXPLAIN ANALYZE`: s\u1ed1 d\u00f2ng th\u1ef1c t\u1ebf \u0111\u1ecdc t\u1eeb index ch\u1ec9 v\u00e0i ngh\u00ecn, g\u1ea7n 2050, kh\u00f4ng ph\u1ea3i h\u00e0ng tr\u0103m ngh\u00ecn. Kh\u00f4ng c\u00f3 node `Sort`.\n- `Handler_read_prev` kho\u1ea3ng v\u00e0i ngh\u00ecn, `Handler_read_rnd_next` kho\u1ea3ng 0.\n\nN\u1ebfu v\u1eabn th\u1ea5y `Using filesort` ho\u1eb7c s\u1ed1 d\u00f2ng \u0111\u1ecdc l\u1edbn h\u01a1n nhi\u1ec1u so v\u1edbi 2050, g\u1eedi l\u1ea1i output cho m\u00ecnh ph\u00e2n t\u00edch ti\u1ebfp. Th\u01b0\u1eddng \u0111\u00f3 l\u00e0 do paid+shipped hi\u1ebfm (khi \u0111\u00f3 \u0111\u1ed5i sang ph\u01b0\u01a1ng \u00e1n `(shop_id, status, created_at, ...)`) ho\u1eb7c do th\u1ed1ng k\u00ea c\u0169 (`ANALYZE TABLE orders;`).\n\nM\u1eb9o nh\u1ecf: n\u1ebfu query g\u1ea7n nh\u01b0 lu\u00f4n `ORDER BY created_at DESC`, c\u00f3 th\u1ec3 khai b\u00e1o `created_at DESC` trong index (MySQL 8.0+) \u0111\u1ec3 tr\u00e1nh backward scan. L\u1ee3i \u00edch nh\u1ecf, kh\u00f4ng b\u1eaft bu\u1ed9c.\n\n## Gi\u1ea3 \u0111\u1ecbnh v\u00e0 c\u00e2u h\u1ecfi\n\nM\u00ecnh \u0111ang gi\u1ea3 \u0111\u1ecbnh:\n- MySQL 8.0+ tr\u00ean InnoDB, PK l\u00e0 `id` (BIGINT).\n- B\u1ea3ng l\u1edbn (h\u00e0ng ch\u1ee5c tri\u1ec7u d\u00f2ng), shop 1207 c\u00f3 nhi\u1ec1u \u0111\u01a1n.\n- paid+shipped chi\u1ebfm ph\u1ea7n l\u1edbn \u0111\u01a1n.\n- Ch\u01b0a c\u00f3 index n\u00e0o ph\u00f9 h\u1ee3p.\n\n**C\u1ea7n b\u1ea1n g\u1eedi** (ch\u1ea1y \u0111\u01b0\u1ee3c tr\u00ean replica; kh\u00f4ng c\u1ea7n d\u1eef li\u1ec7u kh\u00e1ch h\u00e0ng, ch\u1ec9 c\u1ea7n schema v\u00e0 s\u1ed1 \u0111\u1ebfm):\n\n1. Version: `SELECT VERSION();`. C\u00f3 ph\u1ea3i RDS ho\u1eb7c Aurora kh\u00f4ng?\n2. C\u1ea5u tr\u00fac v\u00e0 index hi\u1ec7n c\u00f3:\n   ```sql\n   SHOW CREATE TABLE orders\\G\n   SHOW INDEX FROM orders;\n   ```\n3. Kh\u1ed1i l\u01b0\u1ee3ng d\u1eef li\u1ec7u v\u00e0 ph\u00e2n b\u1ed1:\n   ```sql\n   SELECT table_rows, ROUND(data_length/1024/1024) data_mb, ROUND(index_length/1024/1024) index_mb\n   FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'orders';\n\n   SELECT COUNT(*) FROM orders WHERE shop_id = 1207;\n   SELECT status, COUNT(*) FROM orders\n   WHERE shop_id = 1207 AND created_at >= '2026-10-01' GROUP BY status;\n   ```\n   Th\u00eam s\u1ed1 \u0111\u01a1n c\u1ee7a shop l\u1edbn nh\u1ea5t (tr\u01b0\u1eddng h\u1ee3p x\u1ea5u nh\u1ea5t) v\u00e0 s\u1ed1 \u0111\u01a1n m\u1edbi m\u1ed7i ng\u00e0y.\n4. Traffic:\n   - Query n\u00e0y ch\u1ea1y bao nhi\u00eau l\u1ea7n/gi\u00e2y (ho\u1eb7c /ph\u00fat), l\u00fac b\u00ecnh th\u01b0\u1eddng v\u00e0 l\u00fac cao \u0111i\u1ec3m?\n   - Latency m\u1ee5c ti\u00eau l\u00e0 bao nhi\u00eau?\n   - B\u1ea3ng `orders` c\u00f3 bao nhi\u00eau insert/update m\u1ed7i gi\u00e2y?\n   - C\u00f3 th\u1ec3 l\u1ea5y s\u1ed1 li\u1ec7u t\u1eeb:\n   ```sql\n   SELECT digest_text, count_star, ROUND(avg_timer_wait/1e9,2) avg_ms, sum_rows_examined, sum_rows_sent\n   FROM performance_schema.events_statements_summary_by_digest\n   WHERE digest_text LIKE '%FROM `orders`%' ORDER BY sum_timer_wait DESC LIMIT 10;\n   ```\n5. Plan hi\u1ec7n t\u1ea1i: output `EXPLAIN FORMAT=TREE` (v\u00e0 `EXPLAIN ANALYZE` n\u1ebfu \u0111\u01b0\u1ee3c) c\u1ee7a query tr\u00ean.\n6. Query do ORM sinh ra kh\u00f4ng? `OFFSET` c\u00f3 th\u1ec3 l\u00ean s\u00e2u t\u1edbi \u0111\u00e2u? Ngo\u00e0i query n\u00e0y, `orders` c\u00f2n query n\u00f3ng n\u00e0o kh\u00e1c l\u1ecdc theo `shop_id` kh\u00f4ng? M\u00ecnh c\u1ea7n bi\u1ebft \u0111\u1ec3 g\u1ed9p index, kh\u00f4ng t\u1ea1o th\u00eam index th\u1eeba.\n\nC\u00f3 s\u1ed1 \u1edf m\u1ee5c 3 l\u00e0 m\u00ecnh ch\u1ed1t \u0111\u01b0\u1ee3c n\u00ean d\u00f9ng `(shop_id, created_at, \u2026)` hay `(shop_id, status, created_at, \u2026)`.\n\n*Tham kh\u1ea3o: MySQL 8.0 Reference Manual, ORDER BY Optimization (https://dev.mysql.com/doc/refman/8.0/en/order-by-optimization.html): index ch\u1ec9 tr\u00e1nh \u0111\u01b0\u1ee3c sort khi c\u00e1c c\u1ed9t \u0111\u1ee9ng tr\u01b0\u1edbc c\u1ed9t ORDER BY l\u00e0 h\u1eb1ng (\u0111i\u1ec1u ki\u1ec7n b\u1eb1ng); index DESC ho\u1eb7c backward scan d\u00f9ng \u0111\u01b0\u1ee3c cho `ORDER BY ... DESC`.*\n"}], "grading": {"expectations": [{"text": "The response asks for the exact MySQL version", "passed": true, "evidence": "Asks 'Version: `SELECT VERSION();`. C\u00f3 ph\u1ea3i RDS ho\u1eb7c Aurora kh\u00f4ng?'"}, {"text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX", "passed": true, "evidence": "Asks for 'C\u1ea5u tr\u00fac v\u00e0 index hi\u1ec7n c\u00f3' with `SHOW CREATE TABLE orders\\G` and `SHOW INDEX FROM orders;`"}, {"text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)", "passed": true, "evidence": "Asks for table_rows from information_schema, `SELECT COUNT(*) FROM orders WHERE shop_id = 1207;` and status distribution via GROUP BY status"}, {"text": "The response asks about traffic (how often the query runs and/or write rate on orders)", "passed": true, "evidence": "Traffic section: 'Query n\u00e0y ch\u1ea1y bao nhi\u00eau l\u1ea7n/gi\u00e2y...' and 'B\u1ea3ng `orders` c\u00f3 bao nhi\u00eau insert/update m\u1ed7i gi\u00e2y?'"}, {"text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)", "passed": true, "evidence": "Proposes `(shop_id, created_at, id, status, total, order_no)` and explains the trade-off vs `(shop_id, status, created_at, ...)` when paid+shipped is rare"}, {"text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort", "passed": true, "evidence": "'`status IN ('paid','shipped')` l\u00e0m m\u1ea5t th\u1ee9 t\u1ef1 sort... MySQL kh\u00f4ng merge 2 kho\u1ea3ng theo th\u1ee9 t\u1ef1 \u0111\u01b0\u1ee3c... r\u1ed3i **filesort**'"}, {"text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination", "passed": true, "evidence": "Section '2. S\u1eeda query: b\u1ecf `OFFSET`, d\u00f9ng keyset pagination' with seek predicate on (created_at, id)"}, {"text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify", "passed": true, "evidence": "Ki\u1ec3m ch\u1ee9ng section: EXPLAIN FORMAT=TREE and EXPLAIN ANALYZE 'Tr\u01b0\u1edbc v\u00e0 sau khi t\u1ea1o index', with expected plan (no Using filesort)"}, {"text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)", "passed": true, "evidence": "`ADD INDEX ... ALGORITHM=INPLACE, LOCK=NONE`; 'B\u1ea3ng r\u1ea5t l\u1edbn th\u00ec d\u00f9ng `gh-ost` / `pt-online-schema-change`'"}], "summary": {"passed": 9, "failed": 0, "total": 9, "pass_rate": 1.0}, "overall_notes": "none"}}, {"id": "mysql-sparse-slow-query-without_skill", "prompt": "query n\u00e0y ch\u1ea1y m\u1ea5t 4-5s tr\u00ean prod (mysql), s\u1ebfp k\u00eau t\u1ed1i \u01b0u g\u1ea5p. index g\u00ec cho nhanh v\u1eady?\n\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207 AND status IN ('paid','shipped') AND created_at >= '2026-10-01'\nORDER BY created_at DESC\nLIMIT 50 OFFSET 2000;", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "Ch\u01b0a c\u00f3 `SHOW CREATE TABLE`, `EXPLAIN` hay s\u1ed1 d\u00f2ng n\u00ean m\u00ecnh ch\u01b0a kh\u1eb3ng \u0111\u1ecbnh \u0111\u01b0\u1ee3c 100%. Nh\u01b0ng v\u1edbi query d\u1ea1ng n\u00e0y th\u00ec g\u1ea7n nh\u01b0 ch\u1eafc ch\u1eafn c\u00f3 2 v\u1ea5n \u0111\u1ec1: **thi\u1ebfu index ph\u00f9 h\u1ee3p** v\u00e0 **OFFSET 2000**. D\u01b0\u1edbi \u0111\u00e2y l\u00e0 c\u00e1ch l\u00e0m lu\u00f4n, cu\u1ed1i b\u00e0i c\u00f3 m\u1ea5y th\u00f4ng tin c\u1ea7n b\u1ea1n g\u1eedi \u0111\u1ec3 ch\u1ed1t.\n\n## 1. Index n\u00ean t\u1ea1o (l\u00e0m ngay)\n\n```sql\nALTER TABLE orders\n  ADD INDEX idx_shop_created_status (shop_id, created_at, status),\n  ALGORITHM=INPLACE, LOCK=NONE;\n```\n\n**V\u00ec sao th\u1ee9 t\u1ef1 l\u00e0 `(shop_id, created_at, status)` m\u00e0 kh\u00f4ng ph\u1ea3i `(shop_id, status, created_at)`?**\n\n- `status IN ('paid','shipped')` c\u00f3 2 gi\u00e1 tr\u1ecb. N\u1ebfu `status` \u0111\u1ee9ng tr\u01b0\u1edbc `created_at` th\u00ec MySQL ph\u1ea3i qu\u00e9t 2 kho\u1ea3ng ri\u00eang, k\u1ebft qu\u1ea3 kh\u00f4ng c\u00f2n s\u1eafp x\u1ebfp theo `created_at` n\u1eefa, n\u00ean n\u00f3 **ph\u1ea3i gom h\u1ebft c\u00e1c d\u00f2ng kh\u1edbp r\u1ed3i filesort**, kh\u00f4ng d\u1eebng s\u1edbm \u1edf d\u00f2ng th\u1ee9 2050 \u0111\u01b0\u1ee3c.\n- V\u1edbi `(shop_id, created_at, status)`: MySQL \u0111i \u0111\u00fang v\u00e0o `shop_id = 1207`, \u0111\u1ecdc ng\u01b0\u1ee3c `created_at` t\u1eeb m\u1edbi v\u1ec1 c\u0169 (kh\u1edbp `ORDER BY ... DESC`, **kh\u00f4ng filesort**), l\u1ecdc `status` ngay tr\u00ean index (Index Condition Pushdown), v\u00e0 **d\u1eebng khi \u0111\u1ee7 2050 d\u00f2ng**.\n\n**Mu\u1ed1n nhanh h\u01a1n n\u1eefa th\u00ec d\u00f9ng covering index** (query ch\u1ec9 c\u1ea7n \u0111\u1ecdc index, kh\u00f4ng ph\u1ea3i quay l\u1ea1i b\u1ea3ng). InnoDB t\u1ef1 k\u00e8m `id` (PK) trong secondary index r\u1ed3i:\n\n```sql\nALTER TABLE orders\n  ADD INDEX idx_shop_created_cover (shop_id, created_at, status, order_no, total),\n  ALGORITHM=INPLACE, LOCK=NONE;\n```\n\nIndex n\u00e0y to h\u01a1n v\u00e0 l\u00e0m ghi ch\u1eadm h\u01a1n m\u1ed9t ch\u00fat. M\u00ecnh ngh\u0129 n\u00ean th\u1eed b\u1ea3n 3 c\u1ed9t tr\u01b0\u1edbc, ch\u01b0a \u0111\u1ee7 nhanh th\u00ec m\u1edbi chuy\u1ec3n sang b\u1ea3n covering.\n\n**C\u00f3 m\u1ed9t ngo\u1ea1i l\u1ec7:** n\u1ebfu v\u1edbi shop n\u00e0y, \u0111\u01a1n `paid`/`shipped` ch\u1ec9 chi\u1ebfm r\u1ea5t \u00edt (v\u00ed d\u1ee5 d\u01b0\u1edbi 5% s\u1ed1 \u0111\u01a1n t\u1eeb 01/10) th\u00ec `(shop_id, status, created_at)` l\u1ea1i t\u1ed1t h\u01a1n, v\u00ec n\u00f3 ch\u1ec9 \u0111\u1ecdc \u0111\u00fang nh\u1eefng d\u00f2ng c\u1ea7n r\u1ed3i filesort m\u1ed9t t\u1eadp nh\u1ecf. Ki\u1ec3m tra nhanh b\u1eb1ng:\n\n```sql\nSELECT status, COUNT(*) FROM orders\nWHERE shop_id = 1207 AND created_at >= '2026-10-01'\nGROUP BY status;\n```\n\n## 2. OFFSET 2000 l\u00e0 m\u1ed9t ph\u1ea7n nguy\u00ean nh\u00e2n\n\n`LIMIT 50 OFFSET 2000` ngh\u0129a l\u00e0 MySQL ph\u1ea3i \u0111\u1ecdc **2050 d\u00f2ng** (k\u00e8m tra c\u1ee9u l\u1ea1i b\u1ea3ng cho t\u1eebng d\u00f2ng) r\u1ed3i b\u1ecf \u0111i 2000 d\u00f2ng. Trang c\u00e0ng s\u00e2u th\u00ec c\u00e0ng ch\u1eadm. C\u00f3 2 c\u00e1ch s\u1eeda.\n\n**C\u00e1ch A: deferred join** (kh\u00f4ng ph\u1ea3i \u0111\u1ed5i API). L\u1ea5y `id` tr\u00ean index tr\u01b0\u1edbc, r\u1ed3i m\u1edbi join \u0111\u1ec3 l\u1ea5y c\u1ed9t:\n\n```sql\nSELECT o.id, o.order_no, o.total, o.status, o.created_at\nFROM orders o\nJOIN (\n    SELECT id\n    FROM orders\n    WHERE shop_id = 1207\n      AND status IN ('paid','shipped')\n      AND created_at >= '2026-10-01'\n    ORDER BY created_at DESC, id DESC\n    LIMIT 50 OFFSET 2000\n) t ON t.id = o.id\nORDER BY o.created_at DESC, o.id DESC;\n```\n\nSubquery ch\u1ec9 ch\u1ea1m index `(shop_id, created_at, status)` (c\u00f3 s\u1eb5n `id`), n\u00ean ch\u1ec9 ph\u1ea3i tra b\u1ea3ng \u0111\u00fang 50 l\u1ea7n thay v\u00ec 2050 l\u1ea7n.\n\n**C\u00e1ch B: keyset / seek pagination** (t\u1ed1t nh\u1ea5t, nh\u01b0ng ph\u1ea3i s\u1eeda API). Client g\u1eedi l\u00ean `created_at` v\u00e0 `id` c\u1ee7a d\u00f2ng cu\u1ed1i trang tr\u01b0\u1edbc:\n\n```sql\nSELECT id, order_no, total, status, created_at\nFROM orders\nWHERE shop_id = 1207\n  AND status IN ('paid','shipped')\n  AND created_at >= '2026-10-01'\n  AND (created_at \u003c :last_created_at\n       OR (created_at = :last_created_at AND id \u003c :last_id))\nORDER BY created_at DESC, id DESC\nLIMIT 50;\n```\n\nTrang n\u00e0o c\u0169ng ch\u1ec9 \u0111\u1ecdc kho\u1ea3ng 50 d\u00f2ng. \u0110\u1ed5i l\u1ea1i th\u00ec kh\u00f4ng nh\u1ea3y th\u1eb3ng \u0111\u1ebfn \"trang 41\" \u0111\u01b0\u1ee3c, ch\u1ec9 \u0111i next/prev.\n\nL\u01b0u \u00fd: n\u00ean th\u00eam `id` v\u00e0o `ORDER BY`. N\u1ebfu nhi\u1ec1u \u0111\u01a1n tr\u00f9ng `created_at` th\u00ec th\u1ee9 t\u1ef1 hi\u1ec7n t\u1ea1i kh\u00f4ng \u1ed5n \u0111\u1ecbnh, ph\u00e2n trang c\u00f3 th\u1ec3 l\u1eb7p ho\u1eb7c s\u00f3t d\u00f2ng.\n\n## 3. L\u01b0u \u00fd khi ch\u1ea1y tr\u00ean prod\n\n- `ALGORITHM=INPLACE, LOCK=NONE` (MySQL 5.6+ / 8.0) kh\u00f4ng kh\u00f3a ghi, nh\u01b0ng b\u1ea3ng l\u1edbn v\u1eabn t\u1ed1n IO v\u00e0 g\u00e2y **replication lag**. N\u00ean ch\u1ea1y gi\u1edd th\u1ea5p \u0111i\u1ec3m. B\u1ea3ng r\u1ea5t l\u1edbn (h\u00e0ng ch\u1ee5c/tr\u0103m tri\u1ec7u d\u00f2ng) th\u00ec c\u00e2n nh\u1eafc `gh-ost` ho\u1eb7c `pt-online-schema-change`.\n- Ki\u1ec3m tra tr\u01b0\u1edbc v\u00e0 sau b\u1eb1ng:\n  ```sql\n  EXPLAIN SELECT ...;            -- mong \u0111\u1ee3i: key = idx_shop_created_status, kh\u00f4ng c\u00f3 \"Using filesort\"\n  EXPLAIN ANALYZE SELECT ...;    -- MySQL 8.0.18+, xem s\u1ed1 d\u00f2ng th\u1ef1c t\u1ebf \u0111\u00e3 \u0111\u1ecdc\n  ```\n- N\u1ebfu \u0111\u00e3 c\u00f3 index `(shop_id)` ri\u00eang th\u00ec sau khi t\u1ea1o index m\u1edbi, index c\u0169 th\u00e0nh th\u1eeba (index m\u1edbi b\u1eaft \u0111\u1ea7u b\u1eb1ng `shop_id`). C\u00f3 th\u1ec3 drop sau khi theo d\u00f5i \u1ed5n \u0111\u1ecbnh.\n- N\u1ebfu `created_at` kh\u00f4ng ph\u1ea3i `DATETIME`/`TIMESTAMP` (v\u00ed d\u1ee5 l\u01b0u d\u1ea1ng VARCHAR hay INT) th\u00ec b\u00e1o m\u00ecnh, v\u00ec \u0111i\u1ec1u ki\u1ec7n so s\u00e1nh s\u1ebd kh\u00e1c.\n\n## 4. G\u1eedi m\u00ecnh m\u1ea5y c\u00e1i n\u00e0y \u0111\u1ec3 ch\u1ed1t ph\u01b0\u01a1ng \u00e1n\n\n1. `SHOW CREATE TABLE orders;` (\u0111\u1ec3 xem index hi\u1ec7n c\u00f3)\n2. `EXPLAIN` c\u1ee7a query hi\u1ec7n t\u1ea1i\n3. Phi\u00ean b\u1ea3n MySQL (`SELECT VERSION();`)\n4. B\u1ea3ng c\u00f3 kho\u1ea3ng bao nhi\u00eau d\u00f2ng, shop 1207 c\u00f3 bao nhi\u00eau \u0111\u01a1n t\u1eeb 01/10\n5. K\u1ebft qu\u1ea3 query `GROUP BY status` \u1edf m\u1ee5c 1\n6. API n\u00e0y c\u00f3 b\u1eaft bu\u1ed9c nh\u1ea3y trang theo s\u1ed1 kh\u00f4ng, hay ch\u1ec9 c\u1ea7n next/prev (infinite scroll)?\n\n**T\u00f3m l\u1ea1i n\u1ebfu c\u1ea7n l\u00e0m g\u1ea5p:** t\u1ea1o index `(shop_id, created_at, status)`, th\u00eam `id DESC` v\u00e0o `ORDER BY`, v\u00e0 \u0111\u1ed5i query sang d\u1ea1ng deferred join. Nh\u01b0 v\u1eady th\u01b0\u1eddng \u0111\u1ee7 \u0111\u01b0a query t\u1eeb v\u00e0i gi\u00e2y xu\u1ed1ng d\u01b0\u1edbi ch\u1ee5c mili-gi\u00e2y. Sau \u0111\u00f3 m\u1edbi t\u00ednh chuy\u1ec3n sang keyset pagination.\n"}], "grading": {"expectations": [{"text": "The response asks for the exact MySQL version", "passed": true, "evidence": "Item 3: 'Phi\u00ean b\u1ea3n MySQL (`SELECT VERSION();`)'"}, {"text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX", "passed": true, "evidence": "Item 1: '`SHOW CREATE TABLE orders;` (\u0111\u1ec3 xem index hi\u1ec7n c\u00f3)'"}, {"text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)", "passed": true, "evidence": "Item 4: 'B\u1ea3ng c\u00f3 kho\u1ea3ng bao nhi\u00eau d\u00f2ng, shop 1207 c\u00f3 bao nhi\u00eau \u0111\u01a1n t\u1eeb 01/10' and item 5 status GROUP BY distribution"}, {"text": "The response asks about traffic (how often the query runs and/or write rate on orders)", "passed": false, "evidence": "No question about query frequency or write rate on orders; item 6 asks only about page-jump vs next/prev API behaviour. Write cost is mentioned only as 'l\u00e0m ghi ch\u1eadm h\u01a1n m\u1ed9t ch\u00fat'"}, {"text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)", "passed": true, "evidence": "Recommends `(shop_id, created_at, status)` with explicit rationale vs `(shop_id, status, created_at)` and the rare-status exception"}, {"text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort", "passed": true, "evidence": "'N\u1ebfu `status` \u0111\u1ee9ng tr\u01b0\u1edbc `created_at` th\u00ec MySQL ph\u1ea3i qu\u00e9t 2 kho\u1ea3ng ri\u00eang... **ph\u1ea3i gom h\u1ebft c\u00e1c d\u00f2ng kh\u1edbp r\u1ed3i filesort**'"}, {"text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination", "passed": true, "evidence": "'C\u00e1ch B: keyset / seek pagination (t\u1ed1t nh\u1ea5t, nh\u01b0ng ph\u1ea3i s\u1eeda API)' plus explanation that OFFSET reads 2050 rows"}, {"text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify", "passed": true, "evidence": "'Ki\u1ec3m tra tr\u01b0\u1edbc v\u00e0 sau b\u1eb1ng: EXPLAIN SELECT ...; EXPLAIN ANALYZE SELECT ...; -- MySQL 8.0.18+'"}, {"text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)", "passed": true, "evidence": "'`ALGORITHM=INPLACE, LOCK=NONE`... c\u00e2n nh\u1eafc `gh-ost` ho\u1eb7c `pt-online-schema-change`'"}], "summary": {"passed": 8, "failed": 1, "total": 9, "pass_rate": 0.889}, "overall_notes": "Deferred join and keyset queries use `ORDER BY created_at DESC, id DESC`, but the recommended index is (shop_id, created_at, status) with implicit PK id after status. Because status (IN, two values) sits between created_at and id, the index order is not (created_at, id), so the response's claim that the subquery 'ch\u1ec9 ch\u1ea1m index' with no sort is not guaranteed; ties within the same created_at would need a filesort. The with_skill response avoids this by putting id directly after created_at."}}, {"id": "postgres-full-context-index-design-with_skill", "prompt": "We're on PostgreSQL 16.4 (AWS RDS). This endpoint is our hottest read path and p95 is ~900ms, target is \u003c50ms.\n\nQuery (prepared statement from our Go service):\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\nORDER BY updated_at DESC\nLIMIT 24;\n\nTable:\nCREATE TABLE products (\n  id bigserial PRIMARY KEY,\n  tenant_id int NOT NULL,\n  title text NOT NULL,\n  description text,\n  price numeric(12,2) NOT NULL,\n  is_active boolean NOT NULL DEFAULT true,\n  updated_at timestamptz NOT NULL,\n  created_at timestamptz NOT NULL\n);\nExisting indexes: products_pkey (id), idx_products_tenant (tenant_id), idx_products_price (price).\n\nData: 42M rows, ~1,800 tenants, the biggest tenant has 6M products. ~85% of rows are is_active = true. A typical price range filter matches ~30% of a tenant's active products.\nTraffic: ~1,200 calls/sec at peak, the products table gets ~150 updates/sec (mostly price and updated_at) and ~20 inserts/sec.\n\nWhat index(es) should we create and how do we verify it worked?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "You've given me almost everything I need (version, schema, indexes, volume, skew, traffic), so here is a concrete recommendation followed by a verification plan. I have not run anything against your database. Everything below is DDL or a command for you to run, ideally on staging with production-like data first.\n\n## Diagnosis\n\nThe query is `WHERE tenant_id = ? AND is_active = true AND price BETWEEN ? AND ? ORDER BY updated_at DESC LIMIT 24`. None of the current indexes can return rows in `updated_at` order for a single tenant, so PostgreSQL is forced into one of two bad plans:\n\n- **`idx_products_tenant`** (likely for big tenants): it reads every row of the tenant. For your biggest tenant that is about 6M rows, of which about 5.1M are active and about 1.5M fall in the price range. It filters `is_active` and `price` on the heap, then runs a top-N sort to keep 24 rows. That is millions of heap visits to return 24 rows.\n- **`idx_products_price`**: the range covers about 30% of a tenant's rows, so across all tenants it is very unselective. It ends up as a bitmap scan of a big slice of the table plus a filter on `tenant_id` and a sort.\n\nEither plan fits a p95 around 900 ms. Small tenants are probably fast, and the p95 comes from the large tenants.\n\nThere is also a prepared-statement factor. Your Go driver uses prepared statements, so after 5 executions PostgreSQL may switch to a **generic plan** that ignores the actual `tenant_id` and price values. That is a good reason to choose an index the planner prefers for every parameter value, not just for some of them.\n\n## Recommendation\n\n### 1. One ESR index (main fix)\n\n```sql\nCREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price\n    ON products (tenant_id, is_active, updated_at DESC, price);\n```\n\n**ESR mapping**\n\n| Column | Role | Why |\n|---|---|---|\n| `tenant_id` | **E** | `= $1`. It is the seek prefix. |\n| `is_active` | **E** | `= true`. It is fixed to one value, so the next column stays sorted. |\n| `updated_at DESC` | **S** | It matches `ORDER BY updated_at DESC`. Rows come out already ordered, there is no Sort node, and `LIMIT 24` stops the scan early. |\n| `price` | **R** | `BETWEEN`. It does not bound the seek, but because it is a key column the B-tree checks it on the index tuple (it shows up in `Index Cond`). The heap is visited only for rows that match. |\n\n**Why ESR rather than E\u2011R\u2011S (`tenant_id, is_active, price, updated_at`)**, using your numbers for the biggest tenant:\n\n- Rows matching E: N_e \u2248 5.1M. Rows matching E and R: N_er \u2248 1.5M (30%).\n- With ESR, the scan reads about `24 / 0.30 \u2248 80` index entries and visits about 24 heap rows. There is no sort.\n- With E\u2011R\u2011S, the scan reads about 1.5M entries and then sorts them for a top\u201124.\n- ESR wins by roughly four orders of magnitude. It stays good unless price ranges get very narrow (see Assumptions).\n\n**Design choices**\n\n- **Keep `is_active` in the key rather than using a partial index `WHERE is_active`.** A partial index would only save about 15% of entries, because 85% of rows are active. Keeping the full index means its `(tenant_id)` prefix can serve every other tenant-scoped query, which lets you drop `idx_products_tenant` (step 3). Because of alignment, the boolean also adds almost nothing: `int4` + `bool` still pads to 8 bytes before the `timestamptz`.\n- **No `INCLUDE (title)` and no attempt at an index-only scan.** An index-only scan skips the heap only for pages marked all-visible in the visibility map. The PG 16 docs say outright that `INCLUDE` doesn't help \"if the table changes frequently\" ([indexes-index-only-scans](https://www.postgresql.org/docs/16/indexes-index-only-scans.html)). Here the rows at the top of this index are the most recently updated ones, which are the least likely to be all-visible. You would pay to store every `title` in the index and still get heap fetches. Fetching about 24 heap rows, mostly from cache, is cheap.\n\n**Expected effect:** about 80 index tuples plus about 24 heap fetches. That is typically tens of buffers and low single-digit milliseconds even for the 6M-product tenant, which is well under your 50 ms target.\n\n**Cost**\n\n- **Size:** roughly 40 bytes per entry \u00d7 42M \u2248 **1.5\u20132.5 GB**. Run `pg_relation_size` after the build to get the real figure.\n- **Build:** `CONCURRENTLY` does two table passes and waits for running transactions. Expect minutes to tens of minutes on 42M rows. It cannot run inside a transaction block.\n  - Run it off-peak.\n  - Raise `maintenance_work_mem` for the session, for example `SET maintenance_work_mem = '2GB';`.\n  - Make sure the RDS instance has free storage for the index plus sort temp space, and watch `FreeStorageSpace`.\n- **Writes:** each of the about 150 updates/s that changes `updated_at` now also writes a new entry in this index. HOT updates are already lost whenever `price` changes, because `idx_products_price` exists. Since your updates mostly change price and `updated_at` together, the extra HOT loss is small. Updates that change only `updated_at` will stop being HOT. Check this with the `n_tup_hot_upd` query under Verify.\n- **Bloat:** the index will churn at the \"hot\" end. Autovacuum needs to keep up. Consider per-table settings such as `ALTER TABLE products SET (autovacuum_vacuum_scale_factor = 0.02);` if vacuum lags.\n\n**Rollback:** `DROP INDEX CONCURRENTLY idx_products_tenant_active_updated_price;`. If the build fails, it leaves an `INVALID` index behind. Find it with `SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;` and drop it the same way.\n\n### 2. Optional: make the ordering deterministic\n\n`ORDER BY updated_at DESC LIMIT 24` is not stable when two rows share the same `updated_at`. If this endpoint pages through results, or ever will, use a tiebreaker and keyset pagination instead of `OFFSET`:\n\n```sql\n-- index variant (use this one INSTEAD of #1 if you adopt the tiebreaker)\nCREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_id_price\n    ON products (tenant_id, is_active, updated_at DESC, id DESC, price);\n\n-- page 2+: pass the last row's (updated_at, id)\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\n  AND (updated_at, id) \u003c ($4, $5)\nORDER BY updated_at DESC, id DESC\nLIMIT 24;\n```\n\n### 3. Clean up the existing indexes (after verification, not on the same day)\n\n- **`idx_products_tenant (tenant_id)`**: this is a leftmost prefix of the new index, so it becomes redundant. It is not tied to a FK or a uniqueness constraint. Once the new index has been in use for a while, run `DROP INDEX CONCURRENTLY idx_products_tenant;`. That removes write work and gets back roughly 0.3\u20131 GB.\n- **`idx_products_price (price)`**: do not drop it blindly. Check `idx_scan` (query below) to see whether any other query uses it. If nothing does, dropping it has two benefits: it removes one index from every price update, and it gives the planner one less bad option for this query. Note that it does **not** bring back HOT updates for price changes, because `price` is also in the new index.\n\nAfter the change you have 2\u20133 secondary indexes instead of 3, so the write budget on this table goes down rather than up.\n\n## Verify\n\nRun these on staging with production-like data if you can. Otherwise run them on a read replica, or on the primary off-peak. They are all read-only `SELECT`s, so `EXPLAIN ANALYZE` is safe here.\n\n**0. Capture the baseline before creating the index**\n\n```sql\n-- pg_stat_statements (enabled by default on RDS)\nSELECT queryid, calls, round(mean_exec_time::numeric,2) mean_ms,\n       round(stddev_exec_time::numeric,2) stddev_ms, rows,\n       shared_blks_hit, shared_blks_read\nFROM pg_stat_statements\nWHERE query ILIKE '%FROM products%ORDER BY updated_at DESC%';\n\n-- write / HOT baseline (sample twice, a few minutes apart, to get rates)\nSELECT n_tup_upd, n_tup_hot_upd, n_tup_ins,\n       round(100.0 * n_tup_hot_upd / nullif(n_tup_upd,0), 1) AS hot_pct\nFROM pg_stat_user_tables WHERE relname = 'products';\n```\n\nThen run the plan for **the biggest tenant** and for **a typical tenant**, each with a realistic price range:\n\n```sql\nEXPLAIN (ANALYZE, BUFFERS, SETTINGS)\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = \u003cbiggest_tenant_id> AND is_active = true\n  AND price BETWEEN 20.00 AND 80.00\nORDER BY updated_at DESC\nLIMIT 24;\n```\n\n**1. Create the index (DDL above), then confirm it is valid**\n\n```sql\nSELECT indexrelid::regclass, indisvalid, pg_size_pretty(pg_relation_size(indexrelid))\nFROM pg_index WHERE indrelid = 'products'::regclass;\n```\n\n**2. Re-run the same `EXPLAIN (ANALYZE, BUFFERS)` for both tenants.** A good plan looks like this:\n\n```\nLimit  (actual time=0.05..0.4 rows=24 loops=1)\n  Buffers: shared hit=~30-150\n  ->  Index Scan using idx_products_tenant_active_updated_price on products\n        Index Cond: ((tenant_id = ...) AND (is_active = true)\n                     AND (price >= ...) AND (price \u003c= ...))\n        Buffers: shared hit=...\n```\n\nCheck each of the following:\n- The plan uses an **`Index Scan`** on the new index. It is *not* `Bitmap Heap Scan` and *not* `idx_products_tenant` or `idx_products_price`.\n- There is **no `Sort` node** and no `Incremental Sort`. A Sort node means the S part isn't being used.\n- **`price` appears in `Index Cond`**, with no big `Rows Removed by Filter`. If price shows up as `Filter:` with a cast, such as `(price)::double precision`, the driver is sending the parameters as `float8`. Make the parameters `numeric`, or cast the parameter in SQL: `$2::numeric`.\n- Buffers are in the tens or low hundreds, against what is probably tens of thousands or more in the baseline.\n\n**3. Check the generic plan, which is what your Go service may actually get**\n\n```sql\n-- what the generic plan looks like (PG 16; cannot be combined with ANALYZE)\nEXPLAIN (GENERIC_PLAN)\nSELECT id, title, price, updated_at FROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\nORDER BY updated_at DESC LIMIT 24;\n\n-- and execute it as a generic plan for the biggest tenant\nSET plan_cache_mode = force_generic_plan;\nPREPARE p(int, numeric, numeric) AS\n  SELECT id, title, price, updated_at FROM products\n  WHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\n  ORDER BY updated_at DESC LIMIT 24;\nEXPLAIN (ANALYZE, BUFFERS) EXECUTE p(\u003cbiggest_tenant_id>, 20.00, 80.00);\nDEALLOCATE p; RESET plan_cache_mode;\n```\n\nThe generic plan should also use the new index with no Sort. If the console plan is fast but the generic plan is not, the fallback is `ALTER ROLE \u003capp_role> SET plan_cache_mode = force_custom_plan;`. It costs a little planning CPU per call at 1,200/s, so treat it as a fallback, not the first fix.\n\n**4. Confirm in production what the app really runs**\n- Reset the counters for just this query with `SELECT pg_stat_statements_reset(0, 0, \u003cqueryid>);`. After some peak traffic, compare `mean_exec_time` and `shared_blks_*` per call against the baseline.\n- Optionally, enable `auto_explain` through the RDS parameter group (`shared_preload_libraries` needs a reboot). Use `auto_explain.log_min_duration = 50ms` and `log_buffers = on`, so any call still over target logs its real plan.\n- Check p95 in your Go service metrics or Performance Insights. `pg_stat_statements` gives mean and stddev, not percentiles.\n\n**5. Watch the write side for a few days**\n- Rerun the `n_tup_hot_upd` query. A small drop in `hot_pct` is expected.\n- Watch UPDATE latency in Performance Insights and the new index's size growth.\n- Find out what is still using the old indexes:\n\n  ```sql\n  SELECT indexrelname, idx_scan, pg_size_pretty(pg_relation_size(indexrelid))\n  FROM pg_stat_user_indexes WHERE relname = 'products';\n  ```\n\n  Then drop the redundant ones as described in Recommendation step 3.\n\nSummary of what to compare once you have numbers:\n\n| Metric | Before | After (expected) |\n|---|---|---|\n| Execution time, biggest tenant | ~900 ms (p95) | \u003c 5 ms |\n| Rows read for 24 returned | ~1.5M\u20136M | ~80 |\n| Buffers | very high | tens to low hundreds |\n| Sort node | yes | no |\n| Index used | `idx_products_tenant` / `idx_products_price` | `idx_products_tenant_active_updated_price` |\n\nIf you paste the before and after `EXPLAIN (ANALYZE, BUFFERS)` output, especially for the biggest tenant and the generic plan, I'll check it and adjust if needed.\n\n## Assumptions / open questions\n\n- **Price ranges are usually wide (about 30%).** ESR reads about `24 / selectivity` index entries. A 1% range on the biggest tenant still reads only about 2,400 entries, which is fine. A very narrow range like 0.01% has two problems:\n  - It reads hundreds of thousands of entries.\n  - It returns fewer than 24 rows, which forces a walk through the tenant's whole active range.\n\n  If narrow ranges or \"no results\" searches are common, tell me their share. A second index on `(tenant_id, is_active, price)` would serve that case. The planner can only choose between the two with custom plans, though, and it adds write cost.\n- **No correlation between price and `updated_at`.** I'm assuming recently updated products aren't systematically outside typical price ranges. If they are, the scan reads further before it finds 24 matches.\n- **`title` is short.** It is not in the index either way, but if it is very long (TOASTed), the heap fetches cost slightly more.\n- **Other hot queries.** I don't know the other hot queries on `products`. Run the `pg_stat_statements` top-20 query before you drop `idx_products_price`.\n- **Driver parameter types.** I assumed the Go driver (pgx or lib/pq) sends `$2`/`$3` as numeric. The `Index Cond` check in Verify step 2 confirms this.\n"}], "grading": {"expectations": [{"text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)", "passed": true, "evidence": "`ON products (tenant_id, is_active, updated_at DESC, price)`; ESR table maps tenant_id/is_active=E, updated_at DESC=S, price=R"}, {"text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice", "passed": true, "evidence": "'Keep `is_active` in the key rather than using a partial index `WHERE is_active`. A partial index would only save about 15%...' plus prefix reuse argument"}, {"text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity", "passed": true, "evidence": "'Why ESR rather than E-R-S (`tenant_id, is_active, price, updated_at`)': ESR reads '24 / 0.30 \u2248 80' entries vs E-R-S '1.5M entries and then sorts'"}, {"text": "The response uses CREATE INDEX CONCURRENTLY", "passed": true, "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"}, {"text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at", "passed": true, "evidence": "'HOT updates are already lost whenever `price` changes, because `idx_products_price` exists... Updates that change only `updated_at` will stop being HOT'"}, {"text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)", "passed": true, "evidence": "Section 3: idx_products_tenant 'becomes redundant... DROP INDEX CONCURRENTLY'; idx_products_price 'do not drop it blindly. Check `idx_scan`'"}, {"text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)", "passed": true, "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` plus sample good plan 'Limit -> Index Scan using ...' and 'There is no Sort node'"}, {"text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)", "passed": true, "evidence": "'Check the generic plan': `EXPLAIN (GENERIC_PLAN)` and `SET plan_cache_mode = force_generic_plan; PREPARE p(...)`"}], "summary": {"passed": 8, "failed": 0, "total": 8, "pass_rate": 1.0}, "overall_notes": "none"}}, {"id": "postgres-full-context-index-design-without_skill", "prompt": "We're on PostgreSQL 16.4 (AWS RDS). This endpoint is our hottest read path and p95 is ~900ms, target is \u003c50ms.\n\nQuery (prepared statement from our Go service):\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\nORDER BY updated_at DESC\nLIMIT 24;\n\nTable:\nCREATE TABLE products (\n  id bigserial PRIMARY KEY,\n  tenant_id int NOT NULL,\n  title text NOT NULL,\n  description text,\n  price numeric(12,2) NOT NULL,\n  is_active boolean NOT NULL DEFAULT true,\n  updated_at timestamptz NOT NULL,\n  created_at timestamptz NOT NULL\n);\nExisting indexes: products_pkey (id), idx_products_tenant (tenant_id), idx_products_price (price).\n\nData: 42M rows, ~1,800 tenants, the biggest tenant has 6M products. ~85% of rows are is_active = true. A typical price range filter matches ~30% of a tenant's active products.\nTraffic: ~1,200 calls/sec at peak, the products table gets ~150 updates/sec (mostly price and updated_at) and ~20 inserts/sec.\n\nWhat index(es) should we create and how do we verify it worked?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "# Index design for the products listing query\n\n## TL;DR\n\nCreate one partial composite index that matches the query's **equality \u2192 sort \u2192 filter** shape:\n\n```sql\nCREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price\n    ON products (tenant_id, updated_at DESC, price)\n    WHERE is_active;\n```\n\nThen confirm the plan is `Limit -> Index Scan using idx_products_tenant_active_updated_price` with **no Sort node** and only a few dozen buffers touched. After that, look at whether `idx_products_tenant` and `idx_products_price` are still used and drop them if they aren't.\n\nThe reasoning, the alternatives I rejected, the rollout steps and how to verify it follow below.\n\n---\n\n## Why the current setup is slow\n\nThe only useful indexes are `idx_products_tenant` and `idx_products_price`, so Postgres has two choices, and both are bad:\n\n1. Fetch every row for the tenant through `idx_products_tenant`, filter `is_active` and `price` on the heap, then sort by `updated_at` (a top-N heapsort) to get 24 rows. For your biggest tenant that means about 6M heap tuples visited and about 1.5M rows surviving the filter (6M \u00d7 85% \u00d7 30%) before the sort.\n2. BitmapAnd of the tenant and price indexes, then a heap scan and the same sort. The work is the same order of magnitude.\n\nEither way the cost grows with **tenant size** rather than with `LIMIT 24`. That's why p95 (driven by the large tenants) is around 900ms.\n\n## The index, and why the column order matters\n\n```\n(tenant_id, updated_at DESC, price) WHERE is_active\n```\n\n| Part | Purpose |\n|---|---|\n| `tenant_id` first | Equality predicate. The scan jumps straight to this tenant's slice of the index. |\n| `updated_at DESC` second | The index already returns rows in `ORDER BY updated_at DESC` order, so there's **no sort**, and the `LIMIT 24` can stop the scan early. (A plain ASC column would also work because btrees scan backward, but `DESC` documents the intent.) |\n| `price` third (key column, not `INCLUDE`) | Postgres can't use it as a range *boundary* because it sits after the sort column. It still shows up as an `Index Cond`, though, and btree checks it **on each index tuple before visiting the heap**. Rows outside the price range are skipped inside the index, so you only pay heap fetches for the 24 rows you return. With `INCLUDE (price)` and a plain Index Scan, PG 16 would check price on the heap instead, which is worse. |\n| `WHERE is_active` | The query has the literal `is_active = true`, so the planner can match the partial index, and this holds for generic plans too. It removes the ~15% inactive rows and keeps the index smaller. |\n\n**Expected work per call:** with ~30% of active rows matching the price range, the scan reads about 24 / 0.30 \u2248 80 index tuples, usually on 1\u20133 leaf pages, plus 24 heap fetches. That's a handful of buffers whether the tenant has 100 products or 6M, so sub-millisecond to a few ms when the data is cached, well under your 50ms target.\n\n### Alternatives I rejected\n\n- **`(tenant_id, price, updated_at)`**: this is the \"obvious\" order: equality, then range. The price range becomes a tight boundary, but the rows come out in price order, so Postgres still has to sort about 1.5M rows for the big tenant. The rule of thumb is that an ORDER BY + LIMIT column has to come **before** any range column, or you lose the early stop.\n- **`(tenant_id, updated_at DESC) INCLUDE (price, title)` for index-only scans**: on paper this avoids the 24 heap fetches. But at ~150 updates/sec the visibility map on hot pages is often not all-visible, so the \"index-only\" scan ends up doing heap fetches anyway. Adding `title` (unbounded text) also makes the index much larger and slows every write. 24 random heap fetches on a hot, cached table are cheap. Only revisit this if verification shows heap I/O is the remaining bottleneck.\n- **Separate single-column `updated_at` index**: this would make the planner walk the global `updated_at` order and filter out the other 1,799 tenants. It's terrible for small tenants.\n\n## Write-side impact (150 updates/sec + 20 inserts/sec)\n\n- Updates mostly change `price` and `updated_at`. `price` is already indexed (`idx_products_price`), so those updates are **already non-HOT**. The new index adds one more index insertion per update and insert, about 170 index writes/sec. That's modest for RDS.\n- Expect some bloat on the new index, because `updated_at` changes move entries to the \"hot\" end of the index. Normal autovacuum handles this at these rates. Keep an eye on index size over the first weeks.\n- You can **win write capacity back** by dropping indexes you no longer need (see below).\n\n## Rollout steps\n\n1. **Grab a baseline first** (see \"Verification\" below), so you have before and after numbers.\n2. Build it online. `CONCURRENTLY` does not block reads or writes, but it **can't run inside a transaction block**, so run it outside any migration tool that wraps statements in `BEGIN`:\n   ```sql\n   SET maintenance_work_mem = '1GB';   -- session-only; size to your instance class\n   CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price\n       ON products (tenant_id, updated_at DESC, price)\n       WHERE is_active;\n   ```\n   On 42M rows, expect minutes, not seconds. Watch it with:\n   ```sql\n   SELECT phase, blocks_done, blocks_total, tuples_done, tuples_total\n   FROM pg_stat_progress_create_index;\n   ```\n3. **Check that it is valid.** A failed or cancelled concurrent build leaves an INVALID index that still costs writes:\n   ```sql\n   SELECT indexrelid::regclass, indisvalid, indisready\n   FROM pg_index WHERE indrelid = 'products'::regclass;\n   ```\n   If it's invalid, `DROP INDEX CONCURRENTLY` it and retry.\n4. `ANALYZE products;` (cheap, and it refreshes the planner's stats).\n5. If you have read replicas, the index replicates automatically. Verify there too if the endpoint reads from replicas.\n\n## Verification\n\n### 1. The plan shape (custom plan)\n\nUse real values for your **largest tenant**, plus a small tenant:\n\n```sql\nEXPLAIN (ANALYZE, BUFFERS, SETTINGS)\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = \u003cbig_tenant_id> AND is_active = true\n  AND price BETWEEN 10 AND 50\nORDER BY updated_at DESC\nLIMIT 24;\n```\n\nWhat a good result looks like:\n```\nLimit  (actual rows=24 ...)\n  -> Index Scan using idx_products_tenant_active_updated_price on products\n       Index Cond: ((tenant_id = ...) AND (price >= ...) AND (price \u003c= ...))\n       Buffers: shared hit=~30-100\n```\n- **No `Sort` node** and no `Bitmap Heap Scan`.\n- `Buffers` in the tens, not tens of thousands.\n- `Execution Time` in the low milliseconds.\n\n### 2. The generic plan (important, because it's a prepared statement)\n\nYour Go driver (pgx and friends) prepares the statement, so after 5 executions Postgres may switch to a **generic plan** that ignores the actual `$1..$3` values. That plan is the one production actually runs, so check it as well. PG 16 lets you do that directly:\n\n```sql\nEXPLAIN (GENERIC_PLAN)\nSELECT id, title, price, updated_at\nFROM products\nWHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\nORDER BY updated_at DESC\nLIMIT 24;\n```\n\nTo also get actual timings for the generic plan:\n```sql\nPREPARE q(int, numeric, numeric) AS\n  SELECT id, title, price, updated_at FROM products\n  WHERE tenant_id = $1 AND is_active = true AND price BETWEEN $2 AND $3\n  ORDER BY updated_at DESC LIMIT 24;\nSET plan_cache_mode = force_generic_plan;\nEXPLAIN (ANALYZE, BUFFERS) EXECUTE q(\u003cbig_tenant_id>, 10, 50);\nRESET plan_cache_mode;\nDEALLOCATE q;\n```\nIt should show the same `Limit -> Index Scan using idx_products_tenant_active_updated_price` shape. This index is the right choice for every parameter value in the normal range, so generic and custom plans should agree.\n\n### 3. Edge cases to test\n\n- **Very narrow or empty price ranges on the big tenant** (for example a range that matches 0.1% of rows, or none at all). This is the weak spot of the design: the scan walks `updated_at` order until it finds 24 matches. If nothing matches, it reads that tenant's whole slice of the index (about 5M entries), which can take hundreds of ms.\n  - If your UI allows filters like that and they matter, add a second index, `CREATE INDEX CONCURRENTLY ... ON products (tenant_id, price) WHERE is_active;`. Note that the planner can only pick between the two per call with **custom** plans. Generic plans pick one for everyone. In that case, consider running this statement with `plan_cache_mode = force_custom_plan` (set per role, or per session or connection in the pool's `AfterConnect`), or use pgx's `QueryExecModeExec`/`SimpleProtocol` for this query. Planning cost is small next to a 50ms budget.\n  - If typical filters really are ~30% selective, skip this until monitoring shows a slow tail.\n- **Small tenant.** It should also be a tiny index range scan, and nothing should regress.\n\n### 4. Production confirmation\n\n- **The index is being used:**\n  ```sql\n  SELECT indexrelname, idx_scan, idx_tup_read, idx_tup_fetch,\n         pg_size_pretty(pg_relation_size(indexrelid)) AS size\n  FROM pg_stat_user_indexes WHERE relname = 'products';\n  ```\n  `idx_scan` on the new index should climb at roughly your call rate (~1,200/s at peak).\n- **Latency:** in `pg_stat_statements`, compare `mean_exec_time`, `stddev_exec_time` and `shared_blks_hit + shared_blks_read` per call for this query before and after (`SELECT pg_stat_statements_reset();` after deploying makes the comparison clean). For **p95**, use your Go service or APM histograms, since pg_stat_statements doesn't give percentiles.\n- **Catch slow outliers:** enable `auto_explain` through the RDS parameter group (`shared_preload_libraries` or `session_preload_libraries` = `auto_explain`, `auto_explain.log_min_duration = 50ms`, `auto_explain.log_analyze = on`, `auto_explain.log_buffers = on`). That logs the exact plan for any call that still misses the target, which is how you'd spot the narrow-range case above.\n- **Write side:** in `pg_stat_user_tables`, check `n_tup_upd` against `n_tup_hot_upd`, and watch the new index's size and RDS write IOPS and WAL volume for a few days.\n\n## Clean up the old indexes (after verification)\n\nThese two indexes cost writes on every update, so check whether anything still uses them:\n\n```sql\nSELECT indexrelname, idx_scan FROM pg_stat_user_indexes\nWHERE relname = 'products' AND indexrelname IN ('idx_products_tenant', 'idx_products_price');\n```\n\nNote the counts, wait through a full business cycle (including batch jobs and reports), and check again.\n\n- **`idx_products_tenant`**: the new index covers `tenant_id` lookups, but **only for active rows**. Queries like `WHERE tenant_id = $1` that need inactive products, and foreign-key-style lookups, still need it. Drop it only if nothing else needs it.\n- **`idx_products_price`**: a global price index without tenant scoping is rarely useful in a multi-tenant table. If `idx_scan` doesn't move, drop it. That also gives `price`-only updates a chance to become HOT again if no other index covers `price`, but the new index does cover it, so the bigger gain is simply one less index to maintain.\n\n```sql\nDROP INDEX CONCURRENTLY idx_products_price;   -- only after confirming it's unused\n```\n\n## Optional: make the ordering deterministic\n\n`ORDER BY updated_at DESC LIMIT 24` returns an arbitrary pick when timestamps tie. That matters if you paginate, because rows can repeat or go missing between pages. If you paginate, use keyset pagination with a tie-breaker and build the index to match instead:\n\n```sql\nCREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_id_price\n    ON products (tenant_id, updated_at DESC, id DESC, price)\n    WHERE is_active;\n\n-- page N+1:\n... WHERE tenant_id = $1 AND is_active AND price BETWEEN $2 AND $3\n      AND (updated_at, id) \u003c ($4, $5)\n    ORDER BY updated_at DESC, id DESC\n    LIMIT 24;\n```\n\nAvoid `OFFSET`-based paging on this endpoint. Deep pages would scan `OFFSET + 24` matching rows.\n\n---\n\n**One thing that would help:** if you can share the current `EXPLAIN (ANALYZE, BUFFERS)` output for a large-tenant call, I can confirm the diagnosis above. The recommendation doesn't depend on it, though: the query's shape (equality + ORDER BY + LIMIT + a non-selective range filter) points to this index whatever the current plan is.\n"}], "grading": {"expectations": [{"text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)", "passed": true, "evidence": "`ON products (tenant_id, updated_at DESC, price) WHERE is_active` with price as key column after the sort column"}, {"text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice", "passed": true, "evidence": "Partial index: '`WHERE is_active` | The query has the literal `is_active = true`, so the planner can match the partial index, and this holds for generic plans too'"}, {"text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity", "passed": true, "evidence": "Rejected `(tenant_id, price, updated_at)`: 'rows come out in price order, so Postgres still has to sort about 1.5M rows'; ESR reads '24 / 0.30 \u2248 80 index tuples'"}, {"text": "The response uses CREATE INDEX CONCURRENTLY", "passed": true, "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"}, {"text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at", "passed": true, "evidence": "Write-side impact section: '`price` is already indexed... those updates are **already non-HOT**. The new index adds one more index insertion per update'"}, {"text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)", "passed": true, "evidence": "'Clean up the old indexes (after verification)': check idx_scan for both, caveat that idx_products_tenant still serves inactive rows, `DROP INDEX CONCURRENTLY idx_products_price`"}, {"text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)", "passed": true, "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` with expected 'Limit -> Index Scan ...' and '**No `Sort` node**'"}, {"text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)", "passed": true, "evidence": "'The generic plan (important, because it's a prepared statement)': `EXPLAIN (GENERIC_PLAN)`, `plan_cache_mode = force_generic_plan`"}], "summary": {"passed": 8, "failed": 0, "total": 8, "pass_rate": 1.0}, "overall_notes": "none"}}, {"id": "sqlserver-plan-reanalysis-with_skill", "prompt": "SQL Server 2019, compat level 150. Following advice I created this index:\n\nCREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Created ON dbo.Tickets (AssigneeId, CreatedAt, Priority);\n\nQuery (runs ~300/min from the helpdesk app):\nSELECT TOP (20) TicketId, Subject, Priority, CreatedAt\nFROM dbo.Tickets\nWHERE AssigneeId = @AssigneeId AND CreatedAt >= @Since\nORDER BY Priority DESC, CreatedAt DESC;\n\nTickets has 18M rows, clustered PK on TicketId. A busy agent has ~400k tickets, about 40k of them since @Since (usually 30 days ago). Subject is nvarchar(400).\n\nHere's the actual execution plan summary I got (STATISTICS IO/TIME + actual plan):\n- Top (20 rows)\n- Sort (Priority DESC, CreatedAt DESC) \u2014 Actual rows 41,233 \u2014 warning: Operator used tempdb to spill data during execution with spill level 1\n- Nested Loops (Inner Join)\n  - Index Seek IX_Tickets_Assignee_Created, Seek Predicate: AssigneeId = @AssigneeId AND CreatedAt >= @Since, Actual rows 41,233, Estimated rows 1,850\n  - Key Lookup (Clustered) PK_Tickets, executions 41,233\nTable 'Tickets'. Scan count 1, logical reads 131,904\nCPU time = 312 ms, elapsed time = 655 ms.\n\nStill slow. What's wrong and what should I do next?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "Your plan shows exactly where the time goes. The index is being used, but its column order serves the `WHERE` clause and not the `ORDER BY`. That means SQL Server has to fetch and sort every matching row just to return 20.\n\n## Diagnosis\n\n| Plan evidence | What it means |\n|---|---|\n| Index Seek returns **41,233 rows** for a `TOP (20)` | The index is in **E-R-S** order: `AssigneeId` (Equality), then `CreatedAt` (Range), then `Priority`. Rows come out ordered by `CreatedAt ASC`, but you need `Priority DESC, CreatedAt DESC`. So the engine has to read **every** match before it can pick 20. |\n| **Sort** of 41,233 rows, **spill to tempdb** (level 1) | This is the \"S\" of ESR not being met. The spill happens because the memory grant was sized for the **estimated 1,850 rows**, while 41,233 arrived (22\u00d7 more). |\n| **Key Lookup \u00d7 41,233** | `Subject` is not in the index, so each of the 41k rows costs a clustered-index lookup of about 3 pages. That is roughly **124k of your 131,904 logical reads (~94%)**. The lookups happen *before* the sort, so they are paid for rows you then throw away. |\n| Estimated 1,850 vs actual 41,233 | This is a cardinality problem: parameter sniffing (the plan was compiled for a smaller assignee), or a test run with `DECLARE`d local variables, which uses the density average. It turns into a spill only because there is a big sort. Remove the sort and the estimate barely matters. |\n\nAt 300 executions/min this works out to about 40M logical reads/min, plus a tempdb spill on every run for busy agents.\n\n**Why `(AssigneeId, CreatedAt, Priority)` can't fix it:** after a range on `CreatedAt`, the rows are no longer ordered by `Priority`. A column placed after a range column can only filter; it can't provide order.\n\n## Recommendation\n\n### 1. Index in ESR order (the main fix)\n\n```sql\nCREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Priority_Created\nON dbo.Tickets (AssigneeId ASC, Priority DESC, CreatedAt DESC)\nWITH (ONLINE = ON, SORT_IN_TEMPDB = ON);   -- ONLINE needs Enterprise; on Standard build off-peak (it blocks writes)\n-- 2019 Enterprise can also add RESUMABLE = ON (with ONLINE = ON) for an 18M-row build.\n```\n\n**ESR mapping:**\n- **E** = `AssigneeId`: the seek starts here.\n- **S** = `Priority DESC, CreatedAt DESC`: matches the `ORDER BY` exactly, so there is no Sort operator, no memory grant and no spill. `TOP (20)` can stop early.\n- **R** = `CreatedAt >= @Since`: `CreatedAt` is already a key column (as S), so the range is checked inside the index as a residual predicate, without touching the table.\n\n**Why I'm not adding `INCLUDE (Subject)` yet:** with an ordered index, the Key Lookup runs only for the ~20 rows that are returned, not 41k. That costs about 60 reads. Including `Subject` (nvarchar(400)) would save those ~60 reads but add roughly `18M \u00d7 avg Subject bytes`, likely 2\u20134 GB. It would also make every Subject edit maintain this index. Add it later only if the new plan shows the lookup still matters.\n\n**One weakness of the plain index:** within each priority the newest tickets come first, so recent rows are read first, which is good. But if the highest priority has **fewer than 20 tickets since @Since**, the scan keeps reading that priority's *old* tickets, which don't match, before it moves on to the next priority. For an agent with 400k tickets, this can occasionally mean reading many thousands of narrow index rows. That is still far cheaper than today, but it is unpredictable. Rewrite 2 removes this weakness.\n\n### 2. Query rewrite so `CreatedAt` is seekable too (recommended if `Priority` has a small fixed set of values)\n\nThis rewrite runs one tiny seek per priority on `(AssigneeId = ?, Priority = ?, CreatedAt >= ?)` and merges the results:\n\n```sql\nSELECT TOP (20) t.TicketId, t.Subject, t.Priority, t.CreatedAt\nFROM (VALUES (CAST(4 AS tinyint)), (3), (2), (1)) AS p(Priority)   -- use your real values/type, or a dbo.Priorities lookup table\nCROSS APPLY (\n    SELECT TOP (20) x.TicketId, x.Subject, x.Priority, x.CreatedAt\n    FROM dbo.Tickets AS x\n    WHERE x.AssigneeId = @AssigneeId\n      AND x.Priority   = p.Priority\n      AND x.CreatedAt >= @Since\n    ORDER BY x.CreatedAt DESC\n) AS t\nORDER BY t.Priority DESC, t.CreatedAt DESC;\n```\n\n- Each branch is a pure seek (all three columns are in the Seek Predicate) and reads at most 20 rows. The total is \u2264 20 \u00d7 (number of priorities), e.g. \u2264 80 index rows and \u2264 80 lookups.\n- The final sort handles \u2264 80 rows, so its memory grant is tiny and it won't spill.\n- It gives the same result as your query, with two conditions. **(a)** The list must contain every priority value. Use a lookup table if new priorities can appear. **(b)** If `Priority` is nullable, add a branch for `Priority IS NULL`. NULLs sort last under `DESC`, so they would only appear when fewer than 20 non-NULL rows exist.\n- Ties on `(Priority, CreatedAt)` are returned in no guaranteed order in both versions. If paging must be stable, add `TicketId DESC` to the `ORDER BY`.\n\n**Expected effect (both options):** logical reads drop from **131,904 to roughly 70\u2013300**, with no Sort, no spill and CPU in the low single-digit ms. Option 2 gives the more predictable worst case.\n\n**Cost:** one new narrow index. It holds about 17 bytes of key plus the clustering key per row, roughly 400\u2013600 MB for 18M rows. Every INSERT, and every UPDATE of `AssigneeId`, `Priority` or `CreatedAt`, maintains it. Helpdesks reassign and re-prioritize a lot, so check the write rate (questions below).\n\n**Rollback:** `DROP INDEX IX_Tickets_Assignee_Priority_Created ON dbo.Tickets;`, and revert the query text.\n\n### 3. Then deal with the old index (don't drop it blindly)\n\n`IX_Tickets_Assignee_Created` may become redundant. But it is still the right index for queries such as \"tickets of an assignee in a date range, ordered by date\". Check before removing it:\n\n```sql\nSELECT i.name, s.user_seeks, s.user_scans, s.user_lookups, s.user_updates, s.last_user_seek\nFROM sys.indexes i\nLEFT JOIN sys.dm_db_index_usage_stats s\n  ON s.object_id = i.object_id AND s.index_id = i.index_id AND s.database_id = DB_ID()\nWHERE i.object_id = OBJECT_ID('dbo.Tickets');\n```\n\nIf it shows no seeks after a week or two of normal traffic, and Query Store shows no other query using it, run `ALTER INDEX IX_Tickets_Assignee_Created ON dbo.Tickets DISABLE;` first. Drop it later.\n\n### 4. The estimate gap (secondary, but check it)\n\n- Check how you produced the plan. If you ran it in SSMS with `DECLARE @AssigneeId ...`, the optimizer can't sniff local variables. It uses the average density, which may be where the 1,850 comes from, and the app's plan may differ. Reproduce the app with `sp_executesql` and real parameters, or pull the app's actual plan from Query Store or the plan cache.\n- Check stats freshness: `SELECT * FROM sys.dm_db_stats_properties(OBJECT_ID('dbo.Tickets'), \u003cstats_id>)`, looking at `last_updated` and `modification_counter`. Recent `CreatedAt` values falling beyond the last histogram step is a classic cause of underestimates.\n- At compat 150 you do get **row-mode memory grant feedback**. But it [disables itself for parameter-sensitive queries whose memory needs oscillate](https://learn.microsoft.com/en-us/sql/relational-databases/performance/intelligent-query-processing-memory-grant-feedback). Busy versus quiet agents is exactly that case. The persistent/percentile version and Parameter Sensitive Plan optimization are SQL Server 2022 only, so on 2019 the real fix is removing the sort.\n- Use `OPTION (RECOMPILE)` only as a diagnostic, not as a permanent fix at 300 executions/min.\n\n## Verify\n\nBuild the index on staging with production-sized data, then run both a **typical agent** and the **busiest agent** the way the app does:\n\n```sql\nSET STATISTICS IO, TIME ON;\nEXEC sp_executesql\n  N'\u003cquery text exactly as the app sends it>',\n  N'@AssigneeId int, @Since datetime2',      -- match the app's parameter types\n  @AssigneeId = \u003cbusy agent>, @Since = \u003c30 days ago>;\nSET STATISTICS IO, TIME OFF;\n```\n\nUse \"Include Actual Execution Plan\" and save the plan as a `.sqlplan` file if you can.\n\nWhat a good plan looks like:\n- `Index Seek` on `IX_Tickets_Assignee_Priority_Created`. For option 2, the Seek Predicate shows `AssigneeId`, `Priority` **and** `CreatedAt`.\n- **No Sort operator** for option 1, or only a small Top N Sort of \u2264 80 rows for option 2. No tempdb spill warning.\n- *Number of Rows Read* close to *Actual Number of Rows*: about 20 for option 1 in the good case, \u2264 80 for option 2.\n- Key Lookup executions \u2264 20\u201380.\n- `Tickets` logical reads in the low hundreds or below, and elapsed time in single-digit ms.\n\n| Metric | Before | After (fill in) |\n|---|---|---|\n| Logical reads | 131,904 | |\n| CPU / elapsed | 312 / 655 ms | |\n| Rows read from index | 41,233 | |\n| Key Lookups | 41,233 | |\n| Sort / spill | yes / yes | |\n\nSend me the new plan and these numbers. If option 1 still reads thousands of rows for busy agents, that is the low-count-top-priority case, and option 2 fixes it.\n\n## Assumptions / open questions\n\n1. **`Priority`:** what is its data type, how many distinct values does it have, and is it nullable? Option 2 assumes a small fixed set like 1\u20134.\n2. How are recent tickets for a busy agent spread across priorities? For example, are there usually \u2265 20 at the top priority? This decides whether option 1 alone is enough.\n3. **Edition:** Enterprise or Standard? That decides whether `ONLINE = ON` is available or the build needs a maintenance window.\n4. **Write rate on `Tickets`:** inserts/sec, and how often `AssigneeId` or `Priority` change.\n5. Average `DATALENGTH(Subject)`, only if we later consider `INCLUDE (Subject)`.\n6. Does the app send this query as a parameterized `sp_executesql` or stored procedure, and with which parameter types? An `nvarchar` or `datetime` parameter against a different column type can cause implicit conversions.\n7. Are other hot queries using `IX_Tickets_Assignee_Created`? This decides whether it can be dropped.\n\nI haven't run anything against your database. All DDL above is for you to run, staging first.\n"}], "grading": {"expectations": [{"text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)", "passed": true, "evidence": "'The index is in **E-R-S** order... Rows come out ordered by `CreatedAt ASC`, but you need `Priority DESC, CreatedAt DESC`'; spill row explains Sort"}, {"text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order", "passed": true, "evidence": "`ON dbo.Tickets (AssigneeId ASC, Priority DESC, CreatedAt DESC)` with ESR mapping"}, {"text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup", "passed": false, "evidence": "Explicitly declines covering: 'Why I'm not adding `INCLUDE (Subject)` yet: with an ordered index, the Key Lookup runs only for the ~20 rows'. Reasoned trade-off, but it does not recommend INCLUDE/covering to remove the Key Lookup"}, {"text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing", "passed": true, "evidence": "'Estimated 1,850 vs actual 41,233 | This is a cardinality problem: parameter sniffing...' plus stats freshness check via sys.dm_db_stats_properties"}, {"text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since", "passed": true, "evidence": "Good-plan expectation 'about 20 for option 1 in the good case, \u2264 80 for option 2', and the weakness: if top priority has \u003c20 recent tickets 'the scan keeps reading that priority's *old* tickets'"}, {"text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)", "passed": true, "evidence": "'Then deal with the old index (don't drop it blindly)': check dm_db_index_usage_stats, then `ALTER INDEX IX_Tickets_Assignee_Created ... DISABLE` before dropping"}, {"text": "The response mentions building online (ONLINE = ON) and/or its edition requirement", "passed": true, "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise`"}, {"text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after", "passed": true, "evidence": "Verify section with `SET STATISTICS IO, TIME ON`, actual plan, before/after table with 'Logical reads 131,904 | (fill in)' and 'Send me the new plan and these numbers'"}], "summary": {"passed": 7, "failed": 1, "total": 8, "pass_rate": 0.875}, "overall_notes": "none"}}, {"id": "sqlserver-plan-reanalysis-without_skill", "prompt": "SQL Server 2019, compat level 150. Following advice I created this index:\n\nCREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Created ON dbo.Tickets (AssigneeId, CreatedAt, Priority);\n\nQuery (runs ~300/min from the helpdesk app):\nSELECT TOP (20) TicketId, Subject, Priority, CreatedAt\nFROM dbo.Tickets\nWHERE AssigneeId = @AssigneeId AND CreatedAt >= @Since\nORDER BY Priority DESC, CreatedAt DESC;\n\nTickets has 18M rows, clustered PK on TicketId. A busy agent has ~400k tickets, about 40k of them since @Since (usually 30 days ago). Subject is nvarchar(400).\n\nHere's the actual execution plan summary I got (STATISTICS IO/TIME + actual plan):\n- Top (20 rows)\n- Sort (Priority DESC, CreatedAt DESC) \u2014 Actual rows 41,233 \u2014 warning: Operator used tempdb to spill data during execution with spill level 1\n- Nested Loops (Inner Join)\n  - Index Seek IX_Tickets_Assignee_Created, Seek Predicate: AssigneeId = @AssigneeId AND CreatedAt >= @Since, Actual rows 41,233, Estimated rows 1,850\n  - Key Lookup (Clustered) PK_Tickets, executions 41,233\nTable 'Tickets'. Scan count 1, logical reads 131,904\nCPU time = 312 ms, elapsed time = 655 ms.\n\nStill slow. What's wrong and what should I do next?", "eval_id": null, "outputs": [{"name": "response.md", "type": "text", "content": "Your plan has three problems. They all come from one cause: the index's key order doesn't match the query's `ORDER BY`.\n\n## What's wrong\n\n**1. The index can't return rows in the order the query wants, so `TOP (20)` can't stop early.**\n\nThe index is keyed `(AssigneeId, CreatedAt, Priority)`. After the seek on `AssigneeId = @AssigneeId AND CreatedAt >= @Since`, rows come out ordered by `CreatedAt`. The query wants them ordered by `Priority DESC, CreatedAt DESC`. Having `Priority` as the third key doesn't help, because it is only sorted *within* each identical `CreatedAt` value, which is almost useless for a datetime column.\n\nSo SQL Server has to read **every** matching row (41,233), sort them all, and then keep 20. The `TOP` saves nothing.\n\n**2. It does 41,233 key lookups to fetch `Subject` for rows it will throw away.**\n\n`Subject` isn't in the index, so each of the 41k rows gets a Key Lookup into the clustered index. Each lookup costs about 3 page reads (an 18M-row B-tree is about 3 levels deep). 41,233 \u00d7 ~3 \u2248 124k, which accounts for nearly all of your **131,904 logical reads**. The index seek itself is only a few hundred pages. In other words, about 95% of the I/O goes to fetching `Subject` for 41,213 rows that never reach the client.\n\n**3. A bad row estimate leads to a memory grant that is too small, so the Sort spills to tempdb.**\n\nThe optimizer estimated 1,850 rows and got 41,233, about 22x more. The Sort's memory grant was sized for 1,850 rows that each carry an `nvarchar(400)`, so it spilled to tempdb. That spill is a big part of why elapsed time (655 ms) is about double CPU time (312 ms). The usual causes:\n- **Parameter sniffing:** the cached plan was compiled for a quiet agent or a short `@Since` window, then reused for a busy one. Check `ParameterCompiledValue` against `ParameterRuntimeValue` in the actual plan XML (right-click the plan \u2192 Show Execution Plan XML, near the bottom).\n- **Stale or low-sample statistics** on an 18M-row table where one agent owns 400k rows.\n\nEven with a perfect estimate, this plan shape would still be slow because of #1 and #2. Fixing the estimate only removes the spill. **Fix the index first, and the spill and sniffing issues go away**, because the new plan has no Sort and no memory grant.\n\nAt 300 executions/min, the current plan costs about 40M logical reads per minute and burns a full CPU core (312 ms \u00d7 5/sec \u2248 1.5 s of CPU per second).\n\n## What to do\n\n### Step 1: An index whose key order matches the ORDER BY, covering `Subject`\n\n```sql\nCREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Priority_Created\nON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)\nINCLUDE (Subject)\nWITH (ONLINE = ON, SORT_IN_TEMPDB = ON);   -- ONLINE needs Enterprise edition\n```\n\nWhy this works:\n- With equality on `AssigneeId`, the index delivers rows already in `Priority DESC, CreatedAt DESC` order. The plan becomes `Top \u2192 Index Seek (ordered)`, with no Sort, no memory grant and no spill.\n- `TicketId` is the clustering key, so it is already in every nonclustered index. `INCLUDE (Subject)` removes the Key Lookup.\n- The `CreatedAt >= @Since` test becomes a residual predicate. Within each `Priority` value, rows are in `CreatedAt DESC` order, so recent tickets are read first.\n\n**One caveat:** the residual predicate is cheap only if the highest-priority bucket has at least 20 tickets since `@Since`. If an agent has thousands of *old* top-priority tickets and few recent ones, the scan walks through all of those old rows before it reaches the next priority (SQL Server 2019 has no skip-scan). If that can happen in your data, use Step 2. It is safe regardless of the data.\n\n### Step 2 (most robust): Seek each priority separately, then merge\n\n`Priority` is almost certainly a small set of values. If so, do one tight seek per priority and merge them. The total read is at most 20 \u00d7 (number of priorities) index rows, whatever the data looks like:\n\n```sql\n-- index: (AssigneeId, Priority, CreatedAt) INCLUDE (Subject), with key direction not important here\nSELECT TOP (20) x.TicketId, x.Subject, x.Priority, x.CreatedAt\nFROM (VALUES (4),(3),(2),(1)) AS p(Priority)      -- or SELECT Priority FROM dbo.Priorities\nCROSS APPLY (\n    SELECT TOP (20) t.TicketId, t.Subject, t.Priority, t.CreatedAt\n    FROM dbo.Tickets AS t\n    WHERE t.AssigneeId = @AssigneeId\n      AND t.Priority   = p.Priority\n      AND t.CreatedAt >= @Since\n    ORDER BY t.CreatedAt DESC\n) AS x\nORDER BY x.Priority DESC, x.CreatedAt DESC, x.TicketId DESC;\n```\n\nEach inner query is a seek on `(AssigneeId, Priority, CreatedAt >= @Since)` that reads backward and stops after 20 rows. The outer Sort handles at most 80 rows, a trivial grant that can't realistically spill. Expect **tens of logical reads** instead of 131,904. The index from Step 1 also serves this query; only the leading equality columns matter for the seek.\n\nTwo things to check:\n- **NULL priorities:** if `Priority` is nullable, the `VALUES` list misses NULL rows. Add a branch for `Priority IS NULL` if those tickets should appear (they sort last under `DESC`).\n- **Unknown priority values:** if the set of priorities isn't fixed, drive it from a lookup table rather than hard-coding it.\n\n### Optional: Keep the index narrow and look up `Subject` only for the final 20\n\n`Subject` is up to 800 bytes. If adding it to the index is too costly (index size, or write overhead from Subject edits), leave it out and fetch it after the `TOP`:\n\n```sql\nWITH top20 AS (\n    SELECT TOP (20) TicketId, Priority, CreatedAt\n    FROM dbo.Tickets\n    WHERE AssigneeId = @AssigneeId AND CreatedAt >= @Since\n    ORDER BY Priority DESC, CreatedAt DESC, TicketId DESC\n)\nSELECT t.TicketId, t.Subject, top20.Priority, top20.CreatedAt\nFROM top20\nJOIN dbo.Tickets AS t ON t.TicketId = top20.TicketId\nORDER BY top20.Priority DESC, top20.CreatedAt DESC, top20.TicketId DESC;\n```\n\nThat is 20 key lookups (about 60 reads) instead of 41k. The same pattern works with the per-priority `CROSS APPLY`.\n\n### Step 3: Decide what to do with the old index\n\nBefore dropping `IX_Tickets_Assignee_Created`, check whether anything else uses it, such as queries that filter by assignee and sort by `CreatedAt`:\n\n```sql\nSELECT i.name, s.user_seeks, s.user_scans, s.user_lookups, s.user_updates, s.last_user_seek\nFROM sys.indexes i\nLEFT JOIN sys.dm_db_index_usage_stats s\n  ON s.object_id = i.object_id AND s.index_id = i.index_id AND s.database_id = DB_ID()\nWHERE i.object_id = OBJECT_ID('dbo.Tickets');\n```\n\nYou can also search Query Store for plans that reference it. If only this query used it, drop it so you don't pay write overhead on two similar indexes.\n\n### Step 4: Verify\n\nRun the query for your busiest agent with `SET STATISTICS IO, TIME ON` and the actual plan. You should see:\n- No Sort operator and no Key Lookup (Step 1), or a Sort of 80 rows or fewer (Step 2).\n- Logical reads in the tens, not hundreds of thousands.\n- CPU time near 0 ms and no spill warning.\n\nAlso test a quiet agent and a long `@Since` window. The point of these shapes is that the plan stays good for any parameter values, so you don't need `OPTION (RECOMPILE)` or plan forcing.\n\n### Things to keep in mind\n\n- **Write cost:** an index keyed on `Priority` moves a row whenever its priority changes, and an included `Subject` is rewritten whenever the subject is edited. On a helpdesk table both changes are infrequent compared with 300 reads/min, so this is usually a good trade, but check your update rate.\n- **Ties:** `ORDER BY Priority DESC, CreatedAt DESC` isn't deterministic when two tickets share both values. I added `TicketId DESC` as a tiebreaker so paging and repeated calls give stable results. It costs nothing, because `TicketId` is already in the index.\n- **Statistics:** worth a one-off `UPDATE STATISTICS dbo.Tickets WITH FULLSCAN` (or a higher sample rate) if the estimates still look far off. With the new plan shape this matters far less.\n\n**Summary:** the advice you followed put `CreatedAt` before `Priority`. That suits the `WHERE` clause but not the `ORDER BY`, and with `TOP` the `ORDER BY` is what decides the cost. Put `Priority` right after `AssigneeId`, cover `Subject`, and if old high-priority tickets can pile up, use the per-priority `CROSS APPLY` so the cost stays small however the data is distributed.\n"}], "grading": {"expectations": [{"text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)", "passed": true, "evidence": "'The index is keyed `(AssigneeId, CreatedAt, Priority)`... rows come out ordered by `CreatedAt`. The query wants them ordered by `Priority DESC, CreatedAt DESC`'"}, {"text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order", "passed": true, "evidence": "`ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)`"}, {"text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup", "passed": true, "evidence": "`INCLUDE (Subject)`; '`INCLUDE (Subject)` removes the Key Lookup'"}, {"text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing", "passed": true, "evidence": "'The optimizer estimated 1,850 rows and got 41,233... Parameter sniffing... Stale or low-sample statistics'"}, {"text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since", "passed": true, "evidence": "Caveat: residual predicate is cheap only if the top-priority bucket has >=20 tickets since @Since, else 'the scan walks through all of those old rows'; Step 2 'at most 20 \u00d7 (number of priorities)'"}, {"text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)", "passed": true, "evidence": "Step 3: check usage DMV and Query Store; 'If only this query used it, drop it'"}, {"text": "The response mentions building online (ONLINE = ON) and/or its edition requirement", "passed": true, "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise edition`"}, {"text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after", "passed": true, "evidence": "Step 4: 'Run the query for your busiest agent with `SET STATISTICS IO, TIME ON` and the actual plan... Logical reads in the tens, not hundreds of thousands'"}], "summary": {"passed": 8, "failed": 0, "total": 8, "pass_rate": 1.0}, "overall_notes": "Minor arithmetic inconsistency: '312 ms \u00d7 5/sec \u2248 1.5 s of CPU per second' is described as 'a full CPU core' (it is ~1.5 cores). Attributing the elapsed/CPU gap mainly to the spill is speculative. No SQL errors."}}], "previous_feedback": {}, "previous_outputs": {}, "benchmark": {"metadata": {"skill_name": "sql-optimizer", "skill_path": "\u003cpath/to/skill>", "executor_model": "\u003cmodel-name>", "analyzer_model": "\u003cmodel-name>", "timestamp": "2026-11-24T05:22:59Z", "evals_run": ["bigquery-columnar-tuning", "mysql-sparse-slow-query", "postgres-full-context-index-design", "sqlserver-plan-reanalysis"], "runs_per_configuration": 1}, "runs": [{"eval_id": "bigquery-columnar-tuning", "eval_name": "bigquery-columnar-tuning", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 8, "failed": 0, "total": 8, "time_seconds": 124.5, "tokens": 81654, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix", "passed": true, "evidence": "'BigQuery doesn't have B-tree indexes, so there's no index to add... partition by `DATE(event_ts)` and cluster by `project_id`'"}, {"text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)", "passed": true, "evidence": "`PARTITION BY DATE(event_ts)`"}, {"text": "The response recommends clustering with project_id as the first clustering column", "passed": true, "evidence": "`CLUSTER BY project_id, event_name`; 'project_id | Equality | Cluster column #1'"}, {"text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)", "passed": true, "evidence": "`require_partition_filter = TRUE -- block accidental full scans`"}, {"text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place", "passed": true, "evidence": "'You can't add partitioning to an existing table in place' + CTAS `CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT` + rename cutover steps"}, {"text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after", "passed": true, "evidence": "Verify: `bq query --dry_run` before and after, then 'check `total_bytes_processed` and `total_bytes_billed` in `INFORMATION_SCHEMA.JOBS`'"}, {"text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh", "passed": true, "evidence": "Incremental materialized view with `HLL_COUNT.INIT`; also Looker datagroup caching and 'BI Engine is an option'"}, {"text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)", "passed": true, "evidence": "'Partition pruning alone: 8 of ~730 days \u2248 1.1% of 2.3 TB \u2248 ~25 GB... 1/300 of that would be under 1 GB'"}], "notes": []}, {"eval_id": "mysql-sparse-slow-query", "eval_name": "mysql-sparse-slow-query", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 9, "failed": 0, "total": 9, "time_seconds": 114.7, "tokens": 83853, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response asks for the exact MySQL version", "passed": true, "evidence": "Asks 'Version: `SELECT VERSION();`. C\u00f3 ph\u1ea3i RDS ho\u1eb7c Aurora kh\u00f4ng?'"}, {"text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX", "passed": true, "evidence": "Asks for 'C\u1ea5u tr\u00fac v\u00e0 index hi\u1ec7n c\u00f3' with `SHOW CREATE TABLE orders\\G` and `SHOW INDEX FROM orders;`"}, {"text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)", "passed": true, "evidence": "Asks for table_rows from information_schema, `SELECT COUNT(*) FROM orders WHERE shop_id = 1207;` and status distribution via GROUP BY status"}, {"text": "The response asks about traffic (how often the query runs and/or write rate on orders)", "passed": true, "evidence": "Traffic section: 'Query n\u00e0y ch\u1ea1y bao nhi\u00eau l\u1ea7n/gi\u00e2y...' and 'B\u1ea3ng `orders` c\u00f3 bao nhi\u00eau insert/update m\u1ed7i gi\u00e2y?'"}, {"text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)", "passed": true, "evidence": "Proposes `(shop_id, created_at, id, status, total, order_no)` and explains the trade-off vs `(shop_id, status, created_at, ...)` when paid+shipped is rare"}, {"text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort", "passed": true, "evidence": "'`status IN ('paid','shipped')` l\u00e0m m\u1ea5t th\u1ee9 t\u1ef1 sort... MySQL kh\u00f4ng merge 2 kho\u1ea3ng theo th\u1ee9 t\u1ef1 \u0111\u01b0\u1ee3c... r\u1ed3i **filesort**'"}, {"text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination", "passed": true, "evidence": "Section '2. S\u1eeda query: b\u1ecf `OFFSET`, d\u00f9ng keyset pagination' with seek predicate on (created_at, id)"}, {"text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify", "passed": true, "evidence": "Ki\u1ec3m ch\u1ee9ng section: EXPLAIN FORMAT=TREE and EXPLAIN ANALYZE 'Tr\u01b0\u1edbc v\u00e0 sau khi t\u1ea1o index', with expected plan (no Using filesort)"}, {"text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)", "passed": true, "evidence": "`ADD INDEX ... ALGORITHM=INPLACE, LOCK=NONE`; 'B\u1ea3ng r\u1ea5t l\u1edbn th\u00ec d\u00f9ng `gh-ost` / `pt-online-schema-change`'"}], "notes": []}, {"eval_id": "postgres-full-context-index-design", "eval_name": "postgres-full-context-index-design", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 8, "failed": 0, "total": 8, "time_seconds": 140.0, "tokens": 87447, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)", "passed": true, "evidence": "`ON products (tenant_id, is_active, updated_at DESC, price)`; ESR table maps tenant_id/is_active=E, updated_at DESC=S, price=R"}, {"text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice", "passed": true, "evidence": "'Keep `is_active` in the key rather than using a partial index `WHERE is_active`. A partial index would only save about 15%...' plus prefix reuse argument"}, {"text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity", "passed": true, "evidence": "'Why ESR rather than E-R-S (`tenant_id, is_active, price, updated_at`)': ESR reads '24 / 0.30 \u2248 80' entries vs E-R-S '1.5M entries and then sorts'"}, {"text": "The response uses CREATE INDEX CONCURRENTLY", "passed": true, "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"}, {"text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at", "passed": true, "evidence": "'HOT updates are already lost whenever `price` changes, because `idx_products_price` exists... Updates that change only `updated_at` will stop being HOT'"}, {"text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)", "passed": true, "evidence": "Section 3: idx_products_tenant 'becomes redundant... DROP INDEX CONCURRENTLY'; idx_products_price 'do not drop it blindly. Check `idx_scan`'"}, {"text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)", "passed": true, "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` plus sample good plan 'Limit -> Index Scan using ...' and 'There is no Sort node'"}, {"text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)", "passed": true, "evidence": "'Check the generic plan': `EXPLAIN (GENERIC_PLAN)` and `SET plan_cache_mode = force_generic_plan; PREPARE p(...)`"}], "notes": []}, {"eval_id": "sqlserver-plan-reanalysis", "eval_name": "sqlserver-plan-reanalysis", "configuration": "with_skill", "run_number": 1, "result": {"pass_rate": 0.875, "passed": 7, "failed": 1, "total": 8, "time_seconds": 135.5, "tokens": 94179, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)", "passed": true, "evidence": "'The index is in **E-R-S** order... Rows come out ordered by `CreatedAt ASC`, but you need `Priority DESC, CreatedAt DESC`'; spill row explains Sort"}, {"text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order", "passed": true, "evidence": "`ON dbo.Tickets (AssigneeId ASC, Priority DESC, CreatedAt DESC)` with ESR mapping"}, {"text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup", "passed": false, "evidence": "Explicitly declines covering: 'Why I'm not adding `INCLUDE (Subject)` yet: with an ordered index, the Key Lookup runs only for the ~20 rows'. Reasoned trade-off, but it does not recommend INCLUDE/covering to remove the Key Lookup"}, {"text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing", "passed": true, "evidence": "'Estimated 1,850 vs actual 41,233 | This is a cardinality problem: parameter sniffing...' plus stats freshness check via sys.dm_db_stats_properties"}, {"text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since", "passed": true, "evidence": "Good-plan expectation 'about 20 for option 1 in the good case, \u2264 80 for option 2', and the weakness: if top priority has \u003c20 recent tickets 'the scan keeps reading that priority's *old* tickets'"}, {"text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)", "passed": true, "evidence": "'Then deal with the old index (don't drop it blindly)': check dm_db_index_usage_stats, then `ALTER INDEX IX_Tickets_Assignee_Created ... DISABLE` before dropping"}, {"text": "The response mentions building online (ONLINE = ON) and/or its edition requirement", "passed": true, "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise`"}, {"text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after", "passed": true, "evidence": "Verify section with `SET STATISTICS IO, TIME ON`, actual plan, before/after table with 'Logical reads 131,904 | (fill in)' and 'Send me the new plan and these numbers'"}], "notes": []}, {"eval_id": "bigquery-columnar-tuning", "eval_name": "bigquery-columnar-tuning", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 8, "failed": 0, "total": 8, "time_seconds": 91.8, "tokens": 66760, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix", "passed": true, "evidence": "'BigQuery has no B-tree indexes... Partition the table by day and cluster it by `project_id`'"}, {"text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)", "passed": true, "evidence": "`PARTITION BY DATE(event_ts)`"}, {"text": "The response recommends clustering with project_id as the first clustering column", "passed": true, "evidence": "`CLUSTER BY project_id, event_name, user_id`; '`project_id` goes first because it's the filter you nearly always use'"}, {"text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)", "passed": true, "evidence": "`require_partition_filter = TRUE -- stops anyone from scanning the full table again by accident`"}, {"text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place", "passed": true, "evidence": "'You can't add partitioning to an existing table, so create a new one and swap it in' + CTAS + rename/backfill steps"}, {"text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after", "passed": true, "evidence": "'Expected impact (rough, verify with a dry run)' and 'Look at the actual *bytes billed* in the job details or `INFORMATION_SCHEMA.JOBS` after it runs' (before/after comparison implied, less explicit than with_skill)"}, {"text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh", "passed": true, "evidence": "Daily rollup with HLL_COUNT sketches, materialized view option, Looker datagroup caching, 'BI Engine reservations'"}, {"text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)", "passed": true, "evidence": "'Partitioning cuts the scan to about 8 days divided by your total history... roughly 1%'; 'expect the 2.3 TB to fall to somewhere between a few GB and a few tens of GB'"}], "notes": []}, {"eval_id": "mysql-sparse-slow-query", "eval_name": "mysql-sparse-slow-query", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 0.889, "passed": 8, "failed": 1, "total": 9, "time_seconds": 73.2, "tokens": 65460, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response asks for the exact MySQL version", "passed": true, "evidence": "Item 3: 'Phi\u00ean b\u1ea3n MySQL (`SELECT VERSION();`)'"}, {"text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX", "passed": true, "evidence": "Item 1: '`SHOW CREATE TABLE orders;` (\u0111\u1ec3 xem index hi\u1ec7n c\u00f3)'"}, {"text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)", "passed": true, "evidence": "Item 4: 'B\u1ea3ng c\u00f3 kho\u1ea3ng bao nhi\u00eau d\u00f2ng, shop 1207 c\u00f3 bao nhi\u00eau \u0111\u01a1n t\u1eeb 01/10' and item 5 status GROUP BY distribution"}, {"text": "The response asks about traffic (how often the query runs and/or write rate on orders)", "passed": false, "evidence": "No question about query frequency or write rate on orders; item 6 asks only about page-jump vs next/prev API behaviour. Write cost is mentioned only as 'l\u00e0m ghi ch\u1eadm h\u01a1n m\u1ed9t ch\u00fat'"}, {"text": "The response proposes an index with shop_id first and created_at positioned so it can serve ORDER BY created_at DESC (e.g. (shop_id, created_at) or (shop_id, status, created_at) with an explanation of the trade-off)", "passed": true, "evidence": "Recommends `(shop_id, created_at, status)` with explicit rationale vs `(shop_id, status, created_at)` and the rare-status exception"}, {"text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort", "passed": true, "evidence": "'N\u1ebfu `status` \u0111\u1ee9ng tr\u01b0\u1edbc `created_at` th\u00ec MySQL ph\u1ea3i qu\u00e9t 2 kho\u1ea3ng ri\u00eang... **ph\u1ea3i gom h\u1ebft c\u00e1c d\u00f2ng kh\u1edbp r\u1ed3i filesort**'"}, {"text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination", "passed": true, "evidence": "'C\u00e1ch B: keyset / seek pagination (t\u1ed1t nh\u1ea5t, nh\u01b0ng ph\u1ea3i s\u1eeda API)' plus explanation that OFFSET reads 2050 rows"}, {"text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify", "passed": true, "evidence": "'Ki\u1ec3m tra tr\u01b0\u1edbc v\u00e0 sau b\u1eb1ng: EXPLAIN SELECT ...; EXPLAIN ANALYZE SELECT ...; -- MySQL 8.0.18+'"}, {"text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)", "passed": true, "evidence": "'`ALGORITHM=INPLACE, LOCK=NONE`... c\u00e2n nh\u1eafc `gh-ost` ho\u1eb7c `pt-online-schema-change`'"}], "notes": []}, {"eval_id": "postgres-full-context-index-design", "eval_name": "postgres-full-context-index-design", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 8, "failed": 0, "total": 8, "time_seconds": 99.4, "tokens": 70319, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)", "passed": true, "evidence": "`ON products (tenant_id, updated_at DESC, price) WHERE is_active` with price as key column after the sort column"}, {"text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice", "passed": true, "evidence": "Partial index: '`WHERE is_active` | The query has the literal `is_active = true`, so the planner can match the partial index, and this holds for generic plans too'"}, {"text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity", "passed": true, "evidence": "Rejected `(tenant_id, price, updated_at)`: 'rows come out in price order, so Postgres still has to sort about 1.5M rows'; ESR reads '24 / 0.30 \u2248 80 index tuples'"}, {"text": "The response uses CREATE INDEX CONCURRENTLY", "passed": true, "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"}, {"text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at", "passed": true, "evidence": "Write-side impact section: '`price` is already indexed... those updates are **already non-HOT**. The new index adds one more index insertion per update'"}, {"text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)", "passed": true, "evidence": "'Clean up the old indexes (after verification)': check idx_scan for both, caveat that idx_products_tenant still serves inactive rows, `DROP INDEX CONCURRENTLY idx_products_price`"}, {"text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)", "passed": true, "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` with expected 'Limit -> Index Scan ...' and '**No `Sort` node**'"}, {"text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)", "passed": true, "evidence": "'The generic plan (important, because it's a prepared statement)': `EXPLAIN (GENERIC_PLAN)`, `plan_cache_mode = force_generic_plan`"}], "notes": []}, {"eval_id": "sqlserver-plan-reanalysis", "eval_name": "sqlserver-plan-reanalysis", "configuration": "without_skill", "run_number": 1, "result": {"pass_rate": 1.0, "passed": 8, "failed": 0, "total": 8, "time_seconds": 78.8, "tokens": 68855, "tool_calls": 0, "errors": 0}, "expectations": [{"text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)", "passed": true, "evidence": "'The index is keyed `(AssigneeId, CreatedAt, Priority)`... rows come out ordered by `CreatedAt`. The query wants them ordered by `Priority DESC, CreatedAt DESC`'"}, {"text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order", "passed": true, "evidence": "`ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)`"}, {"text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup", "passed": true, "evidence": "`INCLUDE (Subject)`; '`INCLUDE (Subject)` removes the Key Lookup'"}, {"text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing", "passed": true, "evidence": "'The optimizer estimated 1,850 rows and got 41,233... Parameter sniffing... Stale or low-sample statistics'"}, {"text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since", "passed": true, "evidence": "Caveat: residual predicate is cheap only if the top-priority bucket has >=20 tickets since @Since, else 'the scan walks through all of those old rows'; Step 2 'at most 20 \u00d7 (number of priorities)'"}, {"text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)", "passed": true, "evidence": "Step 3: check usage DMV and Query Store; 'If only this query used it, drop it'"}, {"text": "The response mentions building online (ONLINE = ON) and/or its edition requirement", "passed": true, "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise edition`"}, {"text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after", "passed": true, "evidence": "Step 4: 'Run the query for your busiest agent with `SET STATISTICS IO, TIME ON` and the actual plan... Logical reads in the tens, not hundreds of thousands'"}], "notes": []}], "run_summary": {"with_skill": {"pass_rate": {"mean": 0.9688, "stddev": 0.0625, "min": 0.875, "max": 1.0}, "time_seconds": {"mean": 128.675, "stddev": 11.3661, "min": 114.7, "max": 140.0}, "tokens": {"mean": 86783.25, "stddev": 5478.2373, "min": 81654, "max": 94179}}, "without_skill": {"pass_rate": {"mean": 0.9723, "stddev": 0.0555, "min": 0.889, "max": 1.0}, "time_seconds": {"mean": 85.8, "stddev": 11.9544, "min": 73.2, "max": 99.4}, "tokens": {"mean": 67848.5, "stddev": 2160.7234, "min": 65460, "max": 70319}}, "delta": {"pass_rate": "-0.00", "time_seconds": "+42.9", "tokens": "+18935"}}, "notes": ["Assertions do not discriminate: both configs pass 32/33; postgres and bigquery saturate at 100% for both.", "Real quality difference not captured: mysql baseline's index (shop_id, created_at, status) cannot serve ORDER BY created_at, id for keyset paging; with_skill put id right after created_at.", "with_skill asked about traffic in the sparse mysql case; baseline did not (the skill's Step 4).", "sqlserver with_skill failed the INCLUDE(Subject) assertion by a reasoned choice (only ~20 lookups remain after reordering) \u2014 assertion is too rigid.", "with_skill costs ~+43s and ~+19k tokens per run (reading references + doc fetches); baseline did no web lookups, with_skill fetched official docs in all 4 cases.", "Baseline had minor factual slips (TB vs TiB, CPU-core math); with_skill had none flagged."]}};
+
+    // ---- State ----
+    let feedbackMap = {};  // run_id -> feedback text
+    let currentIndex = 0;
+    let visitedRuns = new Set();
+
+    // ---- Init ----
+    async function init() {
+      // Load saved feedback from server — but only if this isn't a fresh
+      // iteration (indicated by previous_feedback being present). When
+      // previous feedback exists, the feedback.json on disk is stale from
+      // the prior iteration and should not pre-fill the textareas.
+      const hasPrevious = Object.keys(EMBEDDED_DATA.previous_feedback || {}).length > 0
+        || Object.keys(EMBEDDED_DATA.previous_outputs || {}).length > 0;
+      if (!hasPrevious) {
+        try {
+          const resp = await fetch("/api/feedback");
+          const data = await resp.json();
+          if (data.reviews) {
+            for (const r of data.reviews) feedbackMap[r.run_id] = r.feedback;
+          }
+        } catch { /* first run, no feedback yet */ }
+      }
+
+      document.getElementById("skill-name").textContent = EMBEDDED_DATA.skill_name;
+      showRun(0);
+
+      // Wire up feedback auto-save
+      const textarea = document.getElementById("feedback");
+      let saveTimeout = null;
+      textarea.addEventListener("input", () => {
+        clearTimeout(saveTimeout);
+        document.getElementById("feedback-status").textContent = "";
+        saveTimeout = setTimeout(() => saveCurrentFeedback(), 800);
+      });
+    }
+
+    // ---- Navigation ----
+    function navigate(delta) {
+      const newIndex = currentIndex + delta;
+      if (newIndex >= 0 && newIndex < EMBEDDED_DATA.runs.length) {
+        saveCurrentFeedback();
+        showRun(newIndex);
+      }
+    }
+
+    function updateNavButtons() {
+      document.getElementById("prev-btn").disabled = currentIndex === 0;
+      document.getElementById("next-btn").disabled =
+        currentIndex === EMBEDDED_DATA.runs.length - 1;
+    }
+
+    // ---- Show a run ----
+    function showRun(index) {
+      currentIndex = index;
+      const run = EMBEDDED_DATA.runs[index];
+
+      // Progress
+      document.getElementById("progress").textContent =
+        `${index + 1} of ${EMBEDDED_DATA.runs.length}`;
+
+      // Prompt
+      document.getElementById("prompt-text").textContent = run.prompt;
+
+      // Config badge
+      const badge = document.getElementById("config-badge");
+      const configMatch = run.id.match(/(with_skill|without_skill|new_skill|old_skill)/);
+      if (configMatch) {
+        const config = configMatch[1];
+        const isBaseline = config === "without_skill" || config === "old_skill";
+        badge.textContent = config.replace(/_/g, " ");
+        badge.className = "config-badge " + (isBaseline ? "config-baseline" : "config-primary");
+        badge.style.display = "inline-block";
+      } else {
+        badge.style.display = "none";
+      }
+
+      // Outputs
+      renderOutputs(run);
+
+      // Previous outputs
+      renderPrevOutputs(run);
+
+      // Grades
+      renderGrades(run);
+
+      // Previous feedback
+      const prevFb = (EMBEDDED_DATA.previous_feedback || {})[run.id];
+      const prevEl = document.getElementById("prev-feedback");
+      if (prevFb) {
+        document.getElementById("prev-feedback-text").textContent = prevFb;
+        prevEl.style.display = "block";
+      } else {
+        prevEl.style.display = "none";
+      }
+
+      // Feedback
+      document.getElementById("feedback").value = feedbackMap[run.id] || "";
+      document.getElementById("feedback-status").textContent = "";
+
+      updateNavButtons();
+
+      // Track visited runs and promote done button when all visited
+      visitedRuns.add(index);
+      const doneBtn = document.getElementById("done-btn");
+      if (visitedRuns.size >= EMBEDDED_DATA.runs.length) {
+        doneBtn.classList.add("ready");
+      }
+
+      // Scroll main content to top
+      document.querySelector(".main").scrollTop = 0;
+    }
+
+    // ---- Render outputs ----
+    function renderOutputs(run) {
+      const container = document.getElementById("outputs-body");
+      container.innerHTML = "";
+
+      const outputs = run.outputs || [];
+      if (outputs.length === 0) {
+        container.innerHTML = '<div class="empty-state">No output files</div>';
+        return;
+      }
+
+      for (const file of outputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        // Always show file header with download link
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const content = document.createElement("div");
+        content.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          content.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          content.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          content.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(content, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          content.appendChild(a);
+        } else if (file.type === "error") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          pre.style.color = "var(--red)";
+          content.appendChild(pre);
+        }
+
+        fileDiv.appendChild(content);
+        container.appendChild(fileDiv);
+      }
+    }
+
+    // ---- XLSX rendering via SheetJS ----
+    function renderXlsx(container, b64Data) {
+      try {
+        const raw = Uint8Array.from(atob(b64Data), c => c.charCodeAt(0));
+        const wb = XLSX.read(raw, { type: "array" });
+
+        for (let i = 0; i < wb.SheetNames.length; i++) {
+          const sheetName = wb.SheetNames[i];
+          const ws = wb.Sheets[sheetName];
+
+          if (wb.SheetNames.length > 1) {
+            const sheetLabel = document.createElement("div");
+            sheetLabel.style.cssText =
+              "font-weight:600; font-size:0.8rem; color:#b0aea5; margin-top:0.5rem; margin-bottom:0.25rem;";
+            sheetLabel.textContent = "Sheet: " + sheetName;
+            container.appendChild(sheetLabel);
+          }
+
+          const htmlStr = XLSX.utils.sheet_to_html(ws, { editable: false });
+          const wrapper = document.createElement("div");
+          wrapper.innerHTML = htmlStr;
+          container.appendChild(wrapper);
+        }
+      } catch (err) {
+        container.textContent = "Error rendering spreadsheet: " + err.message;
+      }
+    }
+
+    // ---- Grades ----
+    function renderGrades(run) {
+      const section = document.getElementById("grades-section");
+      const content = document.getElementById("grades-content");
+
+      if (!run.grading) {
+        section.style.display = "none";
+        return;
+      }
+
+      const grading = run.grading;
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("grades-arrow").classList.remove("open");
+
+      const summary = grading.summary || {};
+      const expectations = grading.expectations || [];
+
+      let html = '<div style="padding: 1rem;">';
+
+      // Summary line
+      const passRate = summary.pass_rate != null
+        ? Math.round(summary.pass_rate * 100) + "%"
+        : "?";
+      const badgeClass = summary.pass_rate >= 0.8 ? "grade-pass" : summary.pass_rate >= 0.5 ? "" : "grade-fail";
+      html += '<div class="grades-summary">';
+      html += '<span class="grade-badge ' + badgeClass + '">' + passRate + '</span>';
+      html += '<span>' + escapeHtml(summary.passed || 0) + ' passed, ' + escapeHtml(summary.failed || 0) + ' failed of ' + escapeHtml(summary.total || 0) + '</span>';
+      html += '</div>';
+
+      // Assertions list
+      html += '<ul class="assertion-list">';
+      for (const exp of expectations) {
+        const statusClass = exp.passed ? "pass" : "fail";
+        const statusIcon = exp.passed ? "\u2713" : "\u2717";
+        html += '<li class="assertion-item">';
+        html += '<span class="assertion-status ' + statusClass + '">' + statusIcon + '</span>';
+        html += '<span>' + escapeHtml(exp.text) + '</span>';
+        if (exp.evidence) {
+          html += '<div class="assertion-evidence">' + escapeHtml(exp.evidence) + '</div>';
+        }
+        html += '</li>';
+      }
+      html += '</ul>';
+
+      html += '</div>';
+      content.innerHTML = html;
+    }
+
+    function toggleGrades() {
+      const content = document.getElementById("grades-content");
+      const arrow = document.getElementById("grades-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Previous outputs (collapsible) ----
+    function renderPrevOutputs(run) {
+      const section = document.getElementById("prev-outputs-section");
+      const content = document.getElementById("prev-outputs-content");
+      const prevOutputs = (EMBEDDED_DATA.previous_outputs || {})[run.id];
+
+      if (!prevOutputs || prevOutputs.length === 0) {
+        section.style.display = "none";
+        return;
+      }
+
+      section.style.display = "block";
+      // Reset to collapsed
+      content.classList.remove("open");
+      document.getElementById("prev-outputs-arrow").classList.remove("open");
+
+      // Render the files into the content area
+      content.innerHTML = "";
+      const wrapper = document.createElement("div");
+      wrapper.style.padding = "1rem";
+
+      for (const file of prevOutputs) {
+        const fileDiv = document.createElement("div");
+        fileDiv.className = "output-file";
+
+        const header = document.createElement("div");
+        header.className = "output-file-header";
+        const nameSpan = document.createElement("span");
+        nameSpan.textContent = file.name;
+        header.appendChild(nameSpan);
+        const dlBtn = document.createElement("a");
+        dlBtn.className = "dl-btn";
+        dlBtn.textContent = "Download";
+        dlBtn.download = file.name;
+        dlBtn.href = getDownloadUri(file);
+        header.appendChild(dlBtn);
+        fileDiv.appendChild(header);
+
+        const fc = document.createElement("div");
+        fc.className = "output-file-content";
+
+        if (file.type === "text") {
+          const pre = document.createElement("pre");
+          pre.textContent = file.content;
+          fc.appendChild(pre);
+        } else if (file.type === "image") {
+          const img = document.createElement("img");
+          img.src = file.data_uri;
+          img.alt = file.name;
+          fc.appendChild(img);
+        } else if (file.type === "pdf") {
+          const iframe = document.createElement("iframe");
+          iframe.src = file.data_uri;
+          fc.appendChild(iframe);
+        } else if (file.type === "xlsx") {
+          renderXlsx(fc, file.data_b64);
+        } else if (file.type === "binary") {
+          const a = document.createElement("a");
+          a.className = "download-link";
+          a.href = file.data_uri;
+          a.download = file.name;
+          a.textContent = "Download " + file.name;
+          fc.appendChild(a);
+        }
+
+        fileDiv.appendChild(fc);
+        wrapper.appendChild(fileDiv);
+      }
+
+      content.appendChild(wrapper);
+    }
+
+    function togglePrevOutputs() {
+      const content = document.getElementById("prev-outputs-content");
+      const arrow = document.getElementById("prev-outputs-arrow");
+      content.classList.toggle("open");
+      arrow.classList.toggle("open");
+    }
+
+    // ---- Feedback (saved to server -> feedback.json) ----
+    function saveCurrentFeedback() {
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // Build reviews array from map
+      const reviews = [];
+      for (const [run_id, feedback] of Object.entries(feedbackMap)) {
+        if (feedback.trim()) {
+          reviews.push({ run_id, feedback, timestamp: new Date().toISOString() });
+        }
+      }
+
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviews, status: "in_progress" }),
+      }).then(() => {
+        document.getElementById("feedback-status").textContent = "Saved";
+      }).catch(() => {
+        // Static mode or server unavailable — no-op on auto-save,
+        // feedback will be downloaded on final submit
+        document.getElementById("feedback-status").textContent = "Will download on submit";
+      });
+    }
+
+    // ---- Done ----
+    function showDoneDialog() {
+      // Save current textarea to feedbackMap (but don't POST yet)
+      const run = EMBEDDED_DATA.runs[currentIndex];
+      const text = document.getElementById("feedback").value;
+      if (text.trim() === "") {
+        delete feedbackMap[run.id];
+      } else {
+        feedbackMap[run.id] = text;
+      }
+
+      // POST once with status: complete — include ALL runs so the model
+      // can distinguish "no feedback" (looks good) from "not reviewed"
+      const reviews = [];
+      const ts = new Date().toISOString();
+      for (const r of EMBEDDED_DATA.runs) {
+        reviews.push({ run_id: r.id, feedback: feedbackMap[r.id] || "", timestamp: ts });
+      }
+      const payload = JSON.stringify({ reviews, status: "complete" }, null, 2);
+      fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+      }).then(() => {
+        document.getElementById("done-overlay").classList.add("visible");
+      }).catch(() => {
+        // Server not available (static mode) — download as file
+        const blob = new Blob([payload], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "feedback.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        document.getElementById("done-overlay").classList.add("visible");
+      });
+    }
+
+    function closeDoneDialog() {
+      // Reset status back to in_progress
+      saveCurrentFeedback();
+      document.getElementById("done-overlay").classList.remove("visible");
+    }
+
+    // ---- Toast ----
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("visible");
+      setTimeout(() => toast.classList.remove("visible"), 2000);
+    }
+
+    // ---- Keyboard nav ----
+    document.addEventListener("keydown", (e) => {
+      // Don't capture when typing in textarea
+      if (e.target.tagName === "TEXTAREA") return;
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        navigate(-1);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        navigate(1);
+      }
+    });
+
+    // ---- Util ----
+    function getDownloadUri(file) {
+      if (file.data_uri) return file.data_uri;
+      if (file.data_b64) return "data:application/octet-stream;base64," + file.data_b64;
+      if (file.type === "text") return "data:text/plain;charset=utf-8," + encodeURIComponent(file.content);
+      return "#";
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML.replace(/"/g, "&quot;");
+    }
+
+    // ---- View switching ----
+    function switchView(view) {
+      document.querySelectorAll(".view-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+      document.querySelector(`[onclick="switchView('${view}')"]`).classList.add("active");
+      document.getElementById("panel-" + view).classList.add("active");
+    }
+
+    // ---- Benchmark rendering ----
+    function renderBenchmark() {
+      const data = EMBEDDED_DATA.benchmark;
+      if (!data) return;
+
+      // Show the tabs
+      document.getElementById("view-tabs").style.display = "flex";
+
+      const container = document.getElementById("benchmark-content");
+      const summary = data.run_summary || {};
+      const metadata = data.metadata || {};
+      const notes = data.notes || [];
+
+      let html = "";
+
+      // Header
+      html += "<h2 style='font-family: Poppins, sans-serif; margin-bottom: 0.5rem;'>Benchmark Results</h2>";
+      html += "<p style='color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem;'>";
+      if (metadata.skill_name) html += "<strong>" + escapeHtml(metadata.skill_name) + "</strong> &mdash; ";
+      if (metadata.timestamp) html += escapeHtml(metadata.timestamp) + " &mdash; ";
+      if (metadata.evals_run) html += "Evals: " + escapeHtml(metadata.evals_run.join(", ")) + " &mdash; ";
+      html += escapeHtml(metadata.runs_per_configuration || "?") + (metadata.runs_per_configuration === 1 ? " run" : " runs") + " per configuration";
+      html += "</p>";
+
+      // Summary table
+      html += '<table class="benchmark-table">';
+
+      function fmtStat(stat, pct) {
+        if (!stat) return "—";
+        const suffix = pct ? "%" : "";
+        const m = pct ? (stat.mean * 100).toFixed(0) : stat.mean.toFixed(1);
+        const s = pct ? (stat.stddev * 100).toFixed(0) : stat.stddev.toFixed(1);
+        return m + suffix + " ± " + s + suffix;
+      }
+
+      function deltaClass(val) {
+        if (!val) return "";
+        const n = parseFloat(val);
+        if (n > 0) return "benchmark-delta-positive";
+        if (n < 0) return "benchmark-delta-negative";
+        return "";
+      }
+
+      // Discover config names dynamically (everything except "delta")
+      const configs = Object.keys(summary).filter(k => k !== "delta");
+      const configA = configs[0] || "config_a";
+      const configB = configs[1] || "config_b";
+      const labelA = configA.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const labelB = configB.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+      const a = summary[configA] || {};
+      const b = summary[configB] || {};
+      const delta = summary.delta || {};
+      // With a single configuration there is nothing to compare: only its column is shown
+      const compare = cells => configs.length >= 2 ? cells : "";
+
+      html += "<thead><tr><th>Metric</th><th>" + escapeHtml(labelA) + "</th>" + compare("<th>" + escapeHtml(labelB) + "</th><th>Delta</th>") + "</tr></thead>";
+      html += "<tbody>";
+
+      html += "<tr><td><strong>Pass Rate</strong></td>";
+      html += "<td>" + fmtStat(a.pass_rate, true) + "</td>";
+      html += compare("<td>" + fmtStat(b.pass_rate, true) + "</td>");
+      html += compare('<td class="' + deltaClass(delta.pass_rate) + '">' + escapeHtml(delta.pass_rate || "—") + "</td>") + "</tr>";
+
+      // Time (only show row if data exists)
+      if (a.time_seconds || b.time_seconds) {
+        html += "<tr><td><strong>Time (s)</strong></td>";
+        html += "<td>" + fmtStat(a.time_seconds, false) + "</td>";
+        html += compare("<td>" + fmtStat(b.time_seconds, false) + "</td>");
+        html += compare('<td class="' + deltaClass(delta.time_seconds) + '">' + escapeHtml(delta.time_seconds ? delta.time_seconds + "s" : "—") + "</td>") + "</tr>";
+      }
+
+      // Tokens (only show row if data exists)
+      if (a.tokens || b.tokens) {
+        html += "<tr><td><strong>Tokens</strong></td>";
+        html += "<td>" + fmtStat(a.tokens, false) + "</td>";
+        html += compare("<td>" + fmtStat(b.tokens, false) + "</td>");
+        html += compare('<td class="' + deltaClass(delta.tokens) + '">' + escapeHtml(delta.tokens || "—") + "</td>") + "</tr>";
+      }
+
+      html += "</tbody></table>";
+
+      // Per-eval breakdown (if runs data available)
+      const runs = data.runs || [];
+      if (runs.length > 0) {
+        // Numeric ids first, then ids that are names
+        const rank = id => typeof id === "number" ? 0 : 1;
+        const evalIds = [...new Set(runs.map(r => r.eval_id))].sort((a, b) =>
+          rank(a) - rank(b) || (rank(a) ? String(a).localeCompare(String(b)) : a - b));
+
+        html += "<h3 style='font-family: Poppins, sans-serif; margin-bottom: 0.75rem;'>Per-Eval Breakdown</h3>";
+
+        const hasTime = runs.some(r => r.result && r.result.time_seconds != null);
+        const hasErrors = runs.some(r => r.result && r.result.errors > 0);
+
+        for (const evalId of evalIds) {
+          const evalRuns = runs.filter(r => r.eval_id === evalId);
+          const evalName = evalRuns[0] && evalRuns[0].eval_name ? evalRuns[0].eval_name : "Eval " + evalId;
+
+          html += "<h4 style='font-family: Poppins, sans-serif; margin: 1rem 0 0.5rem; color: var(--text);'>" + escapeHtml(evalName) + "</h4>";
+          html += '<table class="benchmark-table">';
+          html += "<thead><tr><th>Config</th><th>Run</th><th>Pass Rate</th>";
+          if (hasTime) html += "<th>Time (s)</th>";
+          if (hasErrors) html += "<th>Crashes During Execution</th>";
+          html += "</tr></thead>";
+          html += "<tbody>";
+
+          // Group by config and render with average rows
+          const configGroups = [...new Set(evalRuns.map(r => r.configuration))];
+          for (let ci = 0; ci < configGroups.length; ci++) {
+            const config = configGroups[ci];
+            const configRuns = evalRuns.filter(r => r.configuration === config);
+            if (configRuns.length === 0) continue;
+
+            const rowClass = ci === 0 ? "benchmark-row-with" : "benchmark-row-without";
+            const configLabel = escapeHtml(config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()));
+
+            for (const run of configRuns) {
+              const r = run.result || {};
+              const prClass = r.pass_rate >= 0.8 ? "benchmark-delta-positive" : r.pass_rate < 0.5 ? "benchmark-delta-negative" : "";
+              html += '<tr class="' + rowClass + '">';
+              html += "<td>" + configLabel + "</td>";
+              html += "<td>" + escapeHtml(run.run_number) + "</td>";
+              html += '<td class="' + prClass + '">' + ((r.pass_rate || 0) * 100).toFixed(0) + "% (" + escapeHtml(r.passed || 0) + "/" + escapeHtml(r.total || 0) + ")</td>";
+              if (hasTime) html += "<td>" + (r.time_seconds != null ? r.time_seconds.toFixed(1) : "—") + "</td>";
+              if (hasErrors) html += "<td>" + escapeHtml(r.errors || 0) + "</td>";
+              html += "</tr>";
+            }
+
+            // Average row
+            const rates = configRuns.map(r => (r.result || {}).pass_rate || 0);
+            const avgRate = rates.reduce((a, b) => a + b, 0) / rates.length;
+            const avgPrClass = avgRate >= 0.8 ? "benchmark-delta-positive" : avgRate < 0.5 ? "benchmark-delta-negative" : "";
+            html += '<tr class="benchmark-row-avg ' + rowClass + '">';
+            html += "<td>" + configLabel + "</td>";
+            html += "<td>Avg</td>";
+            html += '<td class="' + avgPrClass + '">' + (avgRate * 100).toFixed(0) + "%</td>";
+            if (hasTime) {
+              const times = configRuns.map(r => (r.result || {}).time_seconds).filter(t => t != null);
+              html += "<td>" + (times.length ? (times.reduce((a, b) => a + b, 0) / times.length).toFixed(1) : "—") + "</td>";
+            }
+            if (hasErrors) html += "<td></td>";
+            html += "</tr>";
+          }
+          html += "</tbody></table>";
+
+          // Per-assertion detail for this eval
+          const runsWithExpectations = {};
+          for (const config of configGroups) {
+            runsWithExpectations[config] = evalRuns.filter(r => r.configuration === config && r.expectations && r.expectations.length > 0);
+          }
+          const hasAnyExpectations = Object.values(runsWithExpectations).some(runs => runs.length > 0);
+          if (hasAnyExpectations) {
+            // Collect all unique assertion texts across all configs
+            const allAssertions = [];
+            const seen = new Set();
+            for (const config of configGroups) {
+              for (const run of runsWithExpectations[config]) {
+                for (const exp of (run.expectations || [])) {
+                  if (!seen.has(exp.text)) {
+                    seen.add(exp.text);
+                    allAssertions.push(exp.text);
+                  }
+                }
+              }
+            }
+
+            html += '<table class="benchmark-table" style="margin-top: 0.5rem;">';
+            html += "<thead><tr><th>Assertion</th>";
+            for (const config of configGroups) {
+              const label = config.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+              html += "<th>" + escapeHtml(label) + "</th>";
+            }
+            html += "</tr></thead><tbody>";
+
+            for (const assertionText of allAssertions) {
+              html += "<tr><td>" + escapeHtml(assertionText) + "</td>";
+
+              for (const config of configGroups) {
+                html += "<td>";
+                for (const run of runsWithExpectations[config]) {
+                  const exp = (run.expectations || []).find(e => e.text === assertionText);
+                  if (exp) {
+                    const cls = exp.passed ? "benchmark-delta-positive" : "benchmark-delta-negative";
+                    const icon = exp.passed ? "\u2713" : "\u2717";
+                    html += '<span class="' + cls + '" title="Run ' + escapeHtml(run.run_number) + ': ' + escapeHtml(exp.evidence || "") + '">' + icon + "</span> ";
+                  } else {
+                    html += "— ";
+                  }
+                }
+                html += "</td>";
+              }
+              html += "</tr>";
+            }
+            html += "</tbody></table>";
+          }
+        }
+      }
+
+      // Notes
+      if (notes.length > 0) {
+        html += '<div class="benchmark-notes">';
+        html += "<h3>Analysis Notes</h3>";
+        html += "<ul>";
+        for (const note of notes) {
+          html += "<li>" + escapeHtml(note) + "</li>";
+        }
+        html += "</ul></div>";
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ---- Start ----
+    init();
+    renderBenchmark();
+  </script>
+</body>
+</html>

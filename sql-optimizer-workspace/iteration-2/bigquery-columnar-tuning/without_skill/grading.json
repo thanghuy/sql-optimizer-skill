@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+      "passed": true,
+      "evidence": "'BigQuery doesn't have B-tree indexes ... Partition and cluster the table instead'"
+    },
+    {
+      "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+      "passed": true,
+      "evidence": "'PARTITION BY DATE(event_ts)'"
+    },
+    {
+      "text": "The response recommends clustering with project_id as the first clustering column",
+      "passed": true,
+      "evidence": "'CLUSTER BY project_id, event_name, user_id' and 'project_id goes first because nearly every query filters on it'"
+    },
+    {
+      "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter) and warns it can break other existing queries",
+      "passed": true,
+      "evidence": "'require_partition_filter = TRUE ... makes any query without a time filter fail ... Turn it on only after checking that your existing Looker explores always pass a date filter'"
+    },
+    {
+      "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+      "passed": true,
+      "evidence": "'You can't add partitioning to an existing table in place' + CTAS into events_v2 and rename swap"
+    },
+    {
+      "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) and notes that the dry-run estimate is an upper bound for clustered tables",
+      "passed": true,
+      "evidence": "Dry run + INFORMATION_SCHEMA.JOBS_BY_PROJECT; 'The dry-run estimate reflects partition pruning but not clustering pruning, so it will still look high-ish'"
+    },
+    {
+      "text": "If the response suggests a materialized view, it handles COUNT(DISTINCT) correctly (HLL/APPROX functions or a non-incremental alternative) rather than proposing an exact COUNT(DISTINCT) incremental MV; passes if no MV is proposed",
+      "passed": true,
+      "evidence": "Proposes a scheduled rollup table with HLL_COUNT, and notes 'incremental MVs support APPROX_COUNT_DISTINCT/HLL sketches but not exact COUNT(DISTINCT)'"
+    },
+    {
+      "text": "The response estimates the expected reduction in bytes scanned and states the retention/size assumption behind it",
+      "passed": false,
+      "evidence": "Gives '100–1000× reduction, depending on how many days of history you have' and 'a few GB to tens of GB' but never states a concrete retention/size assumption"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "Claim that clustering on user_id (3rd) 'helps the COUNT(DISTINCT user_id) work' is dubious; clustering does not materially speed an aggregate distinct. Cost '$1,300+/day' slightly overstates (220 TB ≈ 200 TiB × $6.25 ≈ $1,250)."
+}

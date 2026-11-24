@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags SELECT DISTINCT over the Users-Orders join as hiding row multiplication (one row per order) and rewrites it with EXISTS / semi-join",
+      "passed": true,
+      "evidence": "Table #4: 'The join produces one row per order ... DISTINCT then has to sort or hash them all away' -> 'Use EXISTS'; rewrite uses EXISTS"
+    },
+    {
+      "text": "The response flags the join Orders.UserCode (nvarchar) = Users.UserCode (varchar) as an implicit conversion (CONVERT_IMPLICIT) that hurts index use, and proposes a fix (align types, or join on UserId)",
+      "passed": true,
+      "evidence": "Table #2: 'SQL Server add CONVERT_IMPLICIT(nvarchar, u.UserCode) on the Users side ... blocks seeks' -> 'Join on UserId ... align the UserCode types'"
+    },
+    {
+      "text": "The response flags ISNULL(u.IsDeleted, 0) = 0 as non-SARGable and rewrites it (IsDeleted = 0 OR IsDeleted IS NULL, or make the column NOT NULL)",
+      "passed": true,
+      "evidence": "Table #5: 'Non-sargable' -> '(u.IsDeleted = 0 OR u.IsDeleted IS NULL)' / NOT NULL DEFAULT 0"
+    },
+    {
+      "text": "The response flags YEAR(o.OrderDate) = 2025 as non-SARGable and rewrites it as OrderDate >= '2025-01-01' AND OrderDate < '2026-01-01'",
+      "passed": true,
+      "evidence": "Table #3 -> `o.OrderDate >= '20250101' AND o.OrderDate < '20260101'`"
+    },
+    {
+      "text": "The response flags IF (SELECT COUNT(*) ...) > 0 and replaces it with IF EXISTS (SELECT 1 ...)",
+      "passed": true,
+      "evidence": "Table #8 -> 'Use IF EXISTS (SELECT 1 ... )'; section 2b shows it"
+    },
+    {
+      "text": "The response does not claim that u.UserName LIKE @search + '%' is a leading-wildcard / non-SARGable predicate (prefix LIKE with a parameter can seek); passes if it calls it fine or only notes a caveat about the parameter content",
+      "passed": true,
+      "evidence": "Table #7: 'LIKE @search + '%' on nvarchar against an nvarchar column can do a dynamic range seek, so that part is fine'"
+    },
+    {
+      "text": "The response recommends an index that supports the rewritten semi-join on Orders (e.g. on (UserId, OrderDate) or (UserCode, OrderDate))",
+      "passed": true,
+      "evidence": "`CREATE NONCLUSTERED INDEX IX_Orders_UserId_OrderDate ON dbo.Orders (UserId, OrderDate)`"
+    },
+    {
+      "text": "The response gives a full rewritten main query",
+      "passed": true,
+      "evidence": "Section 2a gives full rewritten search query"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "Table titled 'What is wrong, in order of impact' with numbered rank and a Fix column per row (priority by rank, no severity labels)"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Collation nuance on CONVERT_IMPLICIT is accurate."
+}

@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: review-mysql-seeded-defects
+expected_outcome: |
+  Finds all 6 planted defects (DATE() on column, numeric vs VARCHAR phone incl. lost leading zero, leading-wildcard LIKE, OR across columns, ORDER BY RAND(), SELECT * with TEXT/JSON) and gives a rewritten query.

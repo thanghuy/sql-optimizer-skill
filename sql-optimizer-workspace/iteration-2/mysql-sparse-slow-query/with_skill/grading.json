@@ -1,0 +1,61 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MySQL version",
+      "passed": true,
+      "evidence": "Asks: 'SELECT VERSION(); Có phải RDS / Aurora / Cloud SQL hay tự host?' under '1. Version'"
+    },
+    {
+      "text": "The response asks for the table structure and existing indexes and gives a command such as SHOW CREATE TABLE or SHOW INDEX",
+      "passed": true,
+      "evidence": "'SHOW CREATE TABLE orders\\G' and 'SHOW INDEX FROM orders;' under '2. Cấu trúc bảng và index hiện có'"
+    },
+    {
+      "text": "The response asks for data volume or cardinality (row count of orders, rows per shop_id, distribution of status)",
+      "passed": true,
+      "evidence": "Section '4. Khối lượng dữ liệu': table_rows query, COUNT(*) WHERE shop_id = 1207, and 'SELECT status, COUNT(*) FROM orders GROUP BY status'"
+    },
+    {
+      "text": "The response asks about traffic (how often the query runs and/or write rate on orders)",
+      "passed": true,
+      "evidence": "Section '5. Traffic': 'Query này chạy bao nhiêu lần/giây' and 'Bảng orders có bao nhiêu insert/update mỗi giây?'"
+    },
+    {
+      "text": "The response explains that the multi-value IN on status placed before created_at in the index breaks the sort order / causes filesort",
+      "passed": true,
+      "evidence": "'Mỗi dải tự sắp theo created_at, nhưng gộp lại thì không còn đúng thứ tự created_at DESC ... (Using filesort)' and 'status IN (2 giá trị) không phải hằng số, nên status không được đứng trước created_at'"
+    },
+    {
+      "text": "The response flags OFFSET 2000 as a cost and suggests keyset (seek) pagination",
+      "passed": true,
+      "evidence": "'2. Bỏ OFFSET, chuyển sang keyset pagination' with full seek query using (created_at, id)"
+    },
+    {
+      "text": "If the response proposes ORDER BY created_at DESC, id DESC (keyset tie-breaker), its recommended index places id immediately after created_at (no other column between them); if it proposes no id tie-breaker this passes",
+      "passed": true,
+      "evidence": "Proposes ORDER BY created_at DESC, id DESC with index (shop_id, created_at, id, status): id immediately after created_at; also explicitly warns '(shop_id, created_at, status) thì không khớp, vì status chen giữa'"
+    },
+    {
+      "text": "Because the version is unknown, the response marks at least one version-dependent feature with its minimum version (e.g. EXPLAIN ANALYZE 8.0.18+, descending/invisible indexes 8.0+, EXPLAIN FORMAT=TREE 8.0.16+)",
+      "passed": true,
+      "evidence": "'plan ước lượng (8.0.16+)' EXPLAIN FORMAT=TREE, 'plan thực tế (8.0.18+)' EXPLAIN ANALYZE, 'INVISIBLE (MySQL 8.0+)', DESC ignored on 5.7"
+    },
+    {
+      "text": "The response asks the user to run EXPLAIN / EXPLAIN ANALYZE after creating the index to verify",
+      "passed": true,
+      "evidence": "'Sau khi tạo index ... chạy và gửi mình kết quả' with EXPLAIN FORMAT=TREE / EXPLAIN ANALYZE and what a good plan looks like"
+    },
+    {
+      "text": "The response recommends building the index online (ALGORITHM=INPLACE, LOCK=NONE, or gh-ost / pt-online-schema-change)",
+      "passed": true,
+      "evidence": "'ALGORITHM=INPLACE, LOCK=NONE' in the DDL plus 'cân nhắc gh-ost hoặc pt-online-schema-change'"
+    }
+  ],
+  "summary": {
+    "passed": 10,
+    "failed": 0,
+    "total": 10,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none significant. Claims checked: InnoDB does not duplicate PK columns already in the key (correct); DESC index parts ignored on 5.7 (correct); version markers for FORMAT=TREE 8.0.16 and EXPLAIN ANALYZE 8.0.18 correct."
+}

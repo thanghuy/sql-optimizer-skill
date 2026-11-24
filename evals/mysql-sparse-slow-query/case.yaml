@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: mysql-sparse-slow-query
+expected_outcome: |
+  Asks for version/schema/data/traffic with commands, gives a provisional ESR index whose column order matches the final rewritten ORDER BY (tie-breaker included), flags OFFSET and IN-before-sort, marks version-dependent features, asks for EXPLAIN after.

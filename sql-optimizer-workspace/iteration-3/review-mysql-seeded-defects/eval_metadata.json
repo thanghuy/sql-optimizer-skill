@@ -1,0 +1,15 @@
+{
+  "eval_name": "review-mysql-seeded-defects",
+  "prompt": "Review giúp mình query này xem có vấn đề gì về hiệu năng không. MySQL 8.0.36, bảng orders ~30 triệu dòng, chạy trên màn hình CSKH mỗi lần tổng đài viên tìm khách.\n\nCREATE TABLE orders (\n  id BIGINT PRIMARY KEY AUTO_INCREMENT,\n  phone VARCHAR(20) NOT NULL,\n  customer_email VARCHAR(255),\n  coupon_code VARCHAR(32),\n  note TEXT,\n  payload JSON,\n  total DECIMAL(12,2),\n  created_at DATETIME NOT NULL,\n  KEY idx_phone (phone),\n  KEY idx_created (created_at),\n  KEY idx_coupon (coupon_code)\n);\n\nSELECT *\nFROM orders o\nWHERE DATE(o.created_at) = '2026-11-01'\n  AND o.phone = 0912345678\n  AND (o.customer_email LIKE '%@gmail.com' OR o.coupon_code = 'BF2026')\nORDER BY RAND()\nLIMIT 10;",
+  "assertions": [
+    "The response flags DATE(o.created_at) = '2026-11-01' as preventing use of idx_created and rewrites it as a half-open range on created_at",
+    "The response flags o.phone = 0912345678 (number vs VARCHAR column) as an implicit cast of the column that prevents use of idx_phone, and fixes it by quoting the value",
+    "The response points out that comparing phone as a number loses the leading zero / can match wrong rows (a correctness problem, not only speed)",
+    "The response flags LIKE '%@gmail.com' as a leading wildcard that cannot use an index and proposes an alternative (e.g. stored/indexed email domain column, reversed column, full-text)",
+    "The response flags the OR between customer_email and coupon_code as preventing a single index range scan and proposes UNION / UNION ALL or explains index-merge behavior",
+    "The response flags ORDER BY RAND() as generating and sorting a value for every matching row and proposes an alternative",
+    "The response flags SELECT * as reading the TEXT/JSON columns (note, payload) unnecessarily and proposes listing columns",
+    "The response gives a full rewritten query that quotes the phone value and uses a range on created_at",
+    "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix"
+  ]
+}

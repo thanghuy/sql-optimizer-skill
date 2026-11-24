@@ -1,0 +1,14 @@
+{
+  "eval_name": "sqlserver-plan-reanalysis",
+  "prompt": "SQL Server 2019, compat level 150. Following advice I created this index:\n\nCREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Created ON dbo.Tickets (AssigneeId, CreatedAt, Priority);\n\nQuery (runs ~300/min from the helpdesk app):\nSELECT TOP (20) TicketId, Subject, Priority, CreatedAt\nFROM dbo.Tickets\nWHERE AssigneeId = @AssigneeId AND CreatedAt >= @Since\nORDER BY Priority DESC, CreatedAt DESC;\n\nTickets has 18M rows, clustered PK on TicketId. A busy agent has ~400k tickets, about 40k of them since @Since (usually 30 days ago). Subject is nvarchar(400).\n\nHere's the actual execution plan summary I got (STATISTICS IO/TIME + actual plan):\n- Top (20 rows)\n- Sort (Priority DESC, CreatedAt DESC) — Actual rows 41,233 — warning: Operator used tempdb to spill data during execution with spill level 1\n- Nested Loops (Inner Join)\n  - Index Seek IX_Tickets_Assignee_Created, Seek Predicate: AssigneeId = @AssigneeId AND CreatedAt >= @Since, Actual rows 41,233, Estimated rows 1,850\n  - Key Lookup (Clustered) PK_Tickets, executions 41,233\nTable 'Tickets'. Scan count 1, logical reads 131,904\nCPU time = 312 ms, elapsed time = 655 ms.\n\nStill slow. What's wrong and what should I do next?",
+  "assertions": [
+    "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+    "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+    "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup",
+    "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+    "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since",
+    "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+    "The response mentions building online (ONLINE = ON) and/or its edition requirement",
+    "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after"
+  ]
+}

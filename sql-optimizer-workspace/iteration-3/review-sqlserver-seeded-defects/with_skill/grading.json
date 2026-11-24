@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response flags SELECT DISTINCT over the Users-Orders join as hiding row multiplication (one row per order) and rewrites it with EXISTS / semi-join",
+      "passed": true,
+      "evidence": "Table #5: 'It builds one row per order (about 20× more rows than users)' -> 'EXISTS semi-join'; rewrite uses `AND EXISTS (SELECT 1 FROM dbo.Orders ...)`"
+    },
+    {
+      "text": "The response flags the join Orders.UserCode (nvarchar) = Users.UserCode (varchar) as an implicit conversion (CONVERT_IMPLICIT) that hurts index use, and proposes a fix (align types, or join on UserId)",
+      "passed": true,
+      "evidence": "Table #4: '`nvarchar` vs `varchar` join, so CONVERT_IMPLICIT on Users.UserCode' -> 'Join on o.UserId = u.UserId'; also align types"
+    },
+    {
+      "text": "The response flags ISNULL(u.IsDeleted, 0) = 0 as non-SARGable and rewrites it (IsDeleted = 0 OR IsDeleted IS NULL, or make the column NOT NULL)",
+      "passed": true,
+      "evidence": "Table #6: 'It can't be seeked' -> '(u.IsDeleted = 0 OR u.IsDeleted IS NULL)' / make NOT NULL"
+    },
+    {
+      "text": "The response flags YEAR(o.OrderDate) = 2025 as non-SARGable and rewrites it as OrderDate >= '2025-01-01' AND OrderDate < '2026-01-01'",
+      "passed": true,
+      "evidence": "Table #3: 'The OrderDate index can't be seeked' -> `o.OrderDate >= '20250101' AND o.OrderDate < '20260101'`"
+    },
+    {
+      "text": "The response flags IF (SELECT COUNT(*) ...) > 0 and replaces it with IF EXISTS (SELECT 1 ...)",
+      "passed": true,
+      "evidence": "Table #2 -> `IF EXISTS (SELECT 1 FROM dbo.Orders WHERE UserId = @id)`"
+    },
+    {
+      "text": "The response does not claim that u.UserName LIKE @search + '%' is a leading-wildcard / non-SARGable predicate (prefix LIKE with a parameter can seek); passes if it calls it fine or only notes a caveat about the parameter content",
+      "passed": true,
+      "evidence": "Table #8: 'The prefix LIKE itself is fine ... SQL Server can do a dynamic range seek'; only caveats about sniffing and user-typed wildcards"
+    },
+    {
+      "text": "The response recommends an index that supports the rewritten semi-join on Orders (e.g. on (UserId, OrderDate) or (UserCode, OrderDate))",
+      "passed": true,
+      "evidence": "`CREATE NONCLUSTERED INDEX IX_Orders_UserId_OrderDate ON dbo.Orders (UserId, OrderDate)`"
+    },
+    {
+      "text": "The response gives a full rewritten main query",
+      "passed": true,
+      "evidence": "'Rewritten query' gives full search query"
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "'Issues found' table with Severity and Fix columns"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. RESUMABLE CREATE INDEX on 2019, filtered-index no-OR rule, nvarchar precedence all correct."
+}

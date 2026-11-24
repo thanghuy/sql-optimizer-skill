@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response asks for the exact MariaDB version and gives a command to get it (e.g. SELECT VERSION())",
+      "passed": true,
+      "evidence": "'Check what prod is running ... SELECT VERSION();'"
+    },
+    {
+      "text": "The response recommends an index led by status followed by due_date ASC and amount DESC, matching the mixed-direction ORDER BY",
+      "passed": true,
+      "evidence": "Case A: '(status, due_date ASC, amount DESC, customer_id)'"
+    },
+    {
+      "text": "The response states that descending index parts are only honored from MariaDB 10.8 (older versions parse but ignore DESC, so the sort cannot be served by the index)",
+      "passed": true,
+      "evidence": "'Real descending indexes only arrived in MariaDB 10.8. Before 10.8, MariaDB accepts DESC in an index definition but ignores it'"
+    },
+    {
+      "text": "The response gives a concrete fallback for MariaDB < 10.8 (e.g. index (status, due_date) and sorting only the ties, or a persistent/virtual generated column such as negated amount)",
+      "passed": true,
+      "evidence": "Case B Option 1 'neg_amount ... AS (-amount) VIRTUAL' index; Option 2 (status, due_date, amount); Option 3 change ordering"
+    },
+    {
+      "text": "The response does not recommend MySQL-8-only syntax as if it works in MariaDB (e.g. functional index key parts like INDEX ((expr)), or INVISIBLE instead of MariaDB's IGNORED)",
+      "passed": true,
+      "evidence": "No MySQL-8-only syntax; uses virtual generated column, plain DROP INDEX"
+    },
+    {
+      "text": "The response gives a MariaDB plan command for verification (ANALYZE FORMAT=JSON SELECT ... or EXPLAIN) and says what to look for (no filesort, rows vs r_rows)",
+      "passed": true,
+      "evidence": "EXPLAIN + 'ANALYZE FORMAT=JSON SELECT ..., which reports the rows actually read'; 'Extra does not show Using filesort'"
+    },
+    {
+      "text": "The response asks for data volume / selectivity of status = 'overdue' or its distribution",
+      "passed": true,
+      "evidence": "'Roughly how many rows have status = overdue (SELECT COUNT(*) ...)'"
+    },
+    {
+      "text": "The response asks about traffic or write rate on invoices",
+      "passed": false,
+      "evidence": "Never asks about page traffic or write/update rate on invoices; only mentions write overhead of keeping idx_status"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none significant"
+}

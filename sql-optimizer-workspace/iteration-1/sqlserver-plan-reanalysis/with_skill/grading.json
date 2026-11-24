@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+      "passed": true,
+      "evidence": "'The index is in **E-R-S** order... Rows come out ordered by `CreatedAt ASC`, but you need `Priority DESC, CreatedAt DESC`'; spill row explains Sort"
+    },
+    {
+      "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+      "passed": true,
+      "evidence": "`ON dbo.Tickets (AssigneeId ASC, Priority DESC, CreatedAt DESC)` with ESR mapping"
+    },
+    {
+      "text": "The response recommends INCLUDE (Subject) (or otherwise making the index covering) to remove the Key Lookup",
+      "passed": false,
+      "evidence": "Explicitly declines covering: 'Why I'm not adding `INCLUDE (Subject)` yet: with an ordered index, the Key Lookup runs only for the ~20 rows'. Reasoned trade-off, but it does not recommend INCLUDE/covering to remove the Key Lookup"
+    },
+    {
+      "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+      "passed": true,
+      "evidence": "'Estimated 1,850 vs actual 41,233 | This is a cardinality problem: parameter sniffing...' plus stats freshness check via sys.dm_db_stats_properties"
+    },
+    {
+      "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since",
+      "passed": true,
+      "evidence": "Good-plan expectation 'about 20 for option 1 in the good case, ≤ 80 for option 2', and the weakness: if top priority has <20 recent tickets 'the scan keeps reading that priority's *old* tickets'"
+    },
+    {
+      "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+      "passed": true,
+      "evidence": "'Then deal with the old index (don't drop it blindly)': check dm_db_index_usage_stats, then `ALTER INDEX IX_Tickets_Assignee_Created ... DISABLE` before dropping"
+    },
+    {
+      "text": "The response mentions building online (ONLINE = ON) and/or its edition requirement",
+      "passed": true,
+      "evidence": "`WITH (ONLINE = ON, SORT_IN_TEMPDB = ON); -- ONLINE needs Enterprise`"
+    },
+    {
+      "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+      "passed": true,
+      "evidence": "Verify section with `SET STATISTICS IO, TIME ON`, actual plan, before/after table with 'Logical reads 131,904 | (fill in)' and 'Send me the new plan and these numbers'"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none"
+}

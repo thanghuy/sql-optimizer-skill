@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+      "passed": true,
+      "evidence": "`ON products (tenant_id, updated_at DESC, price) WHERE is_active` with price as key column after the sort column"
+    },
+    {
+      "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+      "passed": true,
+      "evidence": "Partial index: '`WHERE is_active` | The query has the literal `is_active = true`, so the planner can match the partial index, and this holds for generic plans too'"
+    },
+    {
+      "text": "The response explicitly weighs ESR against putting price before updated_at (E-R-S) using the given ~30% selectivity",
+      "passed": true,
+      "evidence": "Rejected `(tenant_id, price, updated_at)`: 'rows come out in price order, so Postgres still has to sort about 1.5M rows'; ESR reads '24 / 0.30 ≈ 80 index tuples'"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY",
+      "passed": true,
+      "evidence": "`CREATE INDEX CONCURRENTLY idx_products_tenant_active_updated_price`"
+    },
+    {
+      "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+      "passed": true,
+      "evidence": "Write-side impact section: '`price` is already indexed... those updates are **already non-HOT**. The new index adds one more index insertion per update'"
+    },
+    {
+      "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+      "passed": true,
+      "evidence": "'Clean up the old indexes (after verification)': check idx_scan for both, caveat that idx_products_tenant still serves inactive rows, `DROP INDEX CONCURRENTLY idx_products_price`"
+    },
+    {
+      "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "`EXPLAIN (ANALYZE, BUFFERS, SETTINGS)` with expected 'Limit -> Index Scan ...' and '**No `Sort` node**'"
+    },
+    {
+      "text": "The response mentions the prepared-statement / generic plan risk (plan_cache_mode, EXPLAIN GENERIC_PLAN, or testing with $1 parameters)",
+      "passed": true,
+      "evidence": "'The generic plan (important, because it's a prepared statement)': `EXPLAIN (GENERIC_PLAN)`, `plan_cache_mode = force_generic_plan`"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none"
+}

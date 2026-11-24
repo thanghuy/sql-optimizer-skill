@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+      "passed": true,
+      "evidence": "'BigQuery has no B-tree indexes... Partition the table by day and cluster it by `project_id`'"
+    },
+    {
+      "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+      "passed": true,
+      "evidence": "`PARTITION BY DATE(event_ts)`"
+    },
+    {
+      "text": "The response recommends clustering with project_id as the first clustering column",
+      "passed": true,
+      "evidence": "`CLUSTER BY project_id, event_name, user_id`; '`project_id` goes first because it's the filter you nearly always use'"
+    },
+    {
+      "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)",
+      "passed": true,
+      "evidence": "`require_partition_filter = TRUE -- stops anyone from scanning the full table again by accident`"
+    },
+    {
+      "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+      "passed": true,
+      "evidence": "'You can't add partitioning to an existing table, so create a new one and swap it in' + CTAS + rename/backfill steps"
+    },
+    {
+      "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after",
+      "passed": true,
+      "evidence": "'Expected impact (rough, verify with a dry run)' and 'Look at the actual *bytes billed* in the job details or `INFORMATION_SCHEMA.JOBS` after it runs' (before/after comparison implied, less explicit than with_skill)"
+    },
+    {
+      "text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh",
+      "passed": true,
+      "evidence": "Daily rollup with HLL_COUNT sketches, materialized view option, Looker datagroup caching, 'BI Engine reservations'"
+    },
+    {
+      "text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)",
+      "passed": true,
+      "evidence": "'Partitioning cuts the scan to about 8 days divided by your total history... roughly 1%'; 'expect the 2.3 TB to fall to somewhere between a few GB and a few tens of GB'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "Minor: on-demand price quoted as '$6.25/TB' (it is per TiB). Claim that clustering on user_id 'helps the COUNT(DISTINCT user_id) a little' is dubious. No SQL syntax errors."
+}

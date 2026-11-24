@@ -1,0 +1,61 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has region first and created_at (DESC) right after it, with status handled by a partial index predicate (WHERE status IN ('NEW','PAID')) or placed after created_at",
+      "passed": true,
+      "evidence": "'ON orders (region, created_at DESC) WHERE status IN (''NEW'',''PAID'')'"
+    },
+    {
+      "text": "The response explains why status IN ('NEW','PAID') should not sit between region and created_at (multi-value IN breaks the order / forces a sort), or why a partial index removes it from the key",
+      "passed": false,
+      "evidence": "Only says 'Equality column first, then the range/sort column'; never explains that multi-value IN between region and created_at breaks ordering, nor explicitly why the partial predicate takes status out of the key"
+    },
+    {
+      "text": "The response does not present EXPLAIN (GENERIC_PLAN) as available on PostgreSQL 13; if mentioned, it is flagged as PostgreSQL 16+ only",
+      "passed": true,
+      "evidence": "'(EXPLAIN (GENERIC_PLAN) only exists from Postgres 16, so on 13 use the PREPARE/plan_cache_mode approach.)'"
+    },
+    {
+      "text": "The response gives a PostgreSQL 13-valid way to see the app's real plan: PREPARE/EXECUTE 6+ times, SET plan_cache_mode = force_generic_plan, and/or auto_explain with log_analyze",
+      "passed": true,
+      "evidence": "PREPARE + force_generic_plan, 'EXECUTE q(''EU''); six or more times', and auto_explain with log_analyze"
+    },
+    {
+      "text": "The response mentions JDBC server-side prepare behavior (prepareThreshold, default 5) or otherwise explains when the driver switches to a server-prepared / generic plan",
+      "passed": true,
+      "evidence": "'pgjdbc switches to a server-side prepared statement after prepareThreshold executions (default 5)'"
+    },
+    {
+      "text": "The response does not rely on B-tree skip scan (PostgreSQL 18+) for the recommendation",
+      "passed": true,
+      "evidence": "No skip-scan reliance; recommendation is a partial index with region leading"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY",
+      "passed": true,
+      "evidence": "'CREATE INDEX CONCURRENTLY idx_orders_open_region_created'"
+    },
+    {
+      "text": "The response addresses write cost given ~300 inserts/sec and 1-2 status updates per order (e.g. partial index entries added/removed on status change, HOT updates)",
+      "passed": true,
+      "evidence": "'Status updates and HOT ... roughly 300-600 non-HOT updates/s'"
+    },
+    {
+      "text": "The response addresses the existing idx_orders_region / idx_orders_created (redundant or to evaluate dropping)",
+      "passed": true,
+      "evidence": "'idx_orders_region ... is almost certainly useless ... DROP INDEX CONCURRENTLY'; 'Keep idx_orders_created unless ...'"
+    },
+    {
+      "text": "The response gives EXPLAIN (ANALYZE, BUFFERS) and describes what a good plan looks like (no Sort, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "'EXPLAIN (ANALYZE, BUFFERS) EXECUTE q(''EU'')'; good plan described as 'single ordered range scan with no Sort node', stop after 50 rows"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 1,
+    "total": 10,
+    "pass_rate": 0.9
+  },
+  "overall_notes": "none significant. track_planning exists in PG13 (correct)."
+}

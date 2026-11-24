@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: hard-postgres-drop-unused-indexes
+expected_outcome: |
+  Only idx_order_items_order_id is safe to drop; keep FK index used by cascade purge and the unique constraint; stats reset and replica usage make idx_scan unreliable; CONCURRENTLY; rollback definitions.

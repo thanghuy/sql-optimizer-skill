@@ -1,0 +1,14 @@
+{
+  "eval_name": "mariadb-version-unknown",
+  "prompt": "Our admin \"overdue invoices\" page is slow on MariaDB in prod. invoices has ~12M rows.\n\nSELECT id, customer_id, amount, due_date, status\nFROM invoices\nWHERE status = 'overdue'\nORDER BY due_date ASC, amount DESC\nLIMIT 100;\n\nOnly index besides the PK is idx_status (status). Which index do I need?",
+  "assertions": [
+    "The response asks for the exact MariaDB version and gives a command to get it (e.g. SELECT VERSION())",
+    "The response recommends an index led by status followed by due_date ASC and amount DESC, matching the mixed-direction ORDER BY",
+    "The response states that descending index parts are only honored from MariaDB 10.8 (older versions parse but ignore DESC, so the sort cannot be served by the index)",
+    "The response gives a concrete fallback for MariaDB < 10.8 (e.g. index (status, due_date) and sorting only the ties, or a persistent/virtual generated column such as negated amount)",
+    "The response does not recommend MySQL-8-only syntax as if it works in MariaDB (e.g. functional index key parts like INDEX ((expr)), or INVISIBLE instead of MariaDB's IGNORED)",
+    "The response gives a MariaDB plan command for verification (ANALYZE FORMAT=JSON SELECT ... or EXPLAIN) and says what to look for (no filesort, rows vs r_rows)",
+    "The response asks for data volume / selectivity of status = 'overdue' or its distribution",
+    "The response asks about traffic or write rate on invoices"
+  ]
+}

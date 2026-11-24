@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: postgres13-version-syntax
+expected_outcome: |
+  ESR/partial index on (region, created_at DESC) with status handled by partial predicate or after created_at; only PG13-valid features (no GENERIC_PLAN, no skip scan); app-plan capture via plan_cache_mode/PREPARE/auto_explain; CONCURRENTLY; write cost.

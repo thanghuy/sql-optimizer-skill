@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+      "passed": true,
+      "evidence": "'(AssigneeId, CreatedAt, Priority) ... hands them back sorted by CreatedAt, and you asked for Priority DESC, CreatedAt DESC'"
+    },
+    {
+      "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+      "passed": true,
+      "evidence": "Option 1: 'ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)'"
+    },
+    {
+      "text": "The response addresses the Key Lookup cost explicitly: either INCLUDE (Subject) / covering, or an explicit argument that lookups drop to about 20 after reordering",
+      "passed": true,
+      "evidence": "'at most ~20 lookups (none if you INCLUDE Subject)' plus 'About INCLUDE (Subject)' section"
+    },
+    {
+      "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+      "passed": true,
+      "evidence": "'Estimated 1,850 against actual 41,233' -> 'plan was compiled (sniffed) for a quieter agent ... or the parameters are local variables'"
+    },
+    {
+      "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since, including the worst case where high-priority tickets are mostly old",
+      "passed": false,
+      "evidence": "Only qualitative worst case ('reads all of that priority's older tickets ... can cost thousands of rows'); no estimate of rows read for the typical case using the ~10% (40k/400k) ratio"
+    },
+    {
+      "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+      "passed": true,
+      "evidence": "'Don't drop IX_Tickets_Assignee_Created yet. Check whether anything else uses it ... replace it with the new index'"
+    },
+    {
+      "text": "Every SQL Server feature the response recommends exists in SQL Server 2019 / compat level 150, or is explicitly marked as needing a newer version (e.g. PSP optimization is 2022)",
+      "passed": true,
+      "evidence": "Only ONLINE (flagged Enterprise), SORT_IN_TEMPDB, OPTION (RECOMPILE), Query Store: all available in 2019"
+    },
+    {
+      "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+      "passed": true,
+      "evidence": "'Run with SET STATISTICS IO, TIME ON and the actual plan ... logical reads in the tens or low hundreds, not 131,904'; 'compare ... reads before and after in Query Store'"
+    }
+  ],
+  "summary": {
+    "passed": 7,
+    "failed": 1,
+    "total": 8,
+    "pass_rate": 0.875
+  },
+  "overall_notes": "none significant. '1.5 CPU cores' (300/min × 312 ms ≈ 1.56) is correct; '30% guess for >=' with local variables is the standard inequality guess."
+}

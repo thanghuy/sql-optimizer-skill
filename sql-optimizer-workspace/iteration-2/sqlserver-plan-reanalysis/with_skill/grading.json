@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that the Sort/tempdb spill happens because the index order (AssigneeId, CreatedAt, ...) does not match ORDER BY Priority DESC, CreatedAt DESC (range column before sort column)",
+      "passed": true,
+      "evidence": "'Inside one AssigneeId, your index stores rows ordered by CreatedAt, not by Priority ... has to read every matching row (41,233), sort them all' (E-R-S vs E-S-R)"
+    },
+    {
+      "text": "The response recommends an index keyed (AssigneeId, Priority DESC, CreatedAt DESC) or equivalent ESR order",
+      "passed": true,
+      "evidence": "'CREATE NONCLUSTERED INDEX IX_Tickets_Assignee_Priority_Created ON dbo.Tickets (AssigneeId, Priority DESC, CreatedAt DESC)'"
+    },
+    {
+      "text": "The response addresses the Key Lookup cost explicitly: either INCLUDE (Subject) / covering, or an explicit argument that lookups drop to about 20 after reordering",
+      "passed": true,
+      "evidence": "'about 20 Key Lookups instead of 41,233' and explicit 'Why I do not INCLUDE Subject' argument"
+    },
+    {
+      "text": "The response points out the estimated 1,850 vs actual 41,233 rows gap and links it to statistics and/or parameter sniffing",
+      "passed": true,
+      "evidence": "'Estimated 1,850 vs actual 41,233 rows (22× off)' linked to parameter sniffing, local variables, stale statistics"
+    },
+    {
+      "text": "The response estimates or reasons about how many rows the new index will read for TOP 20 given ~10% of the agent's tickets match @Since, including the worst case where high-priority tickets are mostly old",
+      "passed": true,
+      "evidence": "'roughly 20 × 400k / 40k ≈ 200 index rows' plus 'Worst case ... the agent's full 400k-row history, it reads about 1,500 pages'"
+    },
+    {
+      "text": "The response says what to do with the existing IX_Tickets_Assignee_Created (replace/drop after verification, or DROP_EXISTING)",
+      "passed": true,
+      "evidence": "'Replace, don't stack' with usage-stats check, DISABLE then DROP IX_Tickets_Assignee_Created"
+    },
+    {
+      "text": "Every SQL Server feature the response recommends exists in SQL Server 2019 / compat level 150, or is explicitly marked as needing a newer version (e.g. PSP optimization is 2022)",
+      "passed": true,
+      "evidence": "PSP flagged: 'needs SQL Server 2022 / compat 160, so it is not available to you'; ONLINE flagged Enterprise; RESUMABLE CREATE INDEX is valid on 2019; row-mode memory grant feedback at compat 150 is valid"
+    },
+    {
+      "text": "The response asks for a new actual execution plan and STATISTICS IO to compare logical reads before and after",
+      "passed": true,
+      "evidence": "'SET STATISTICS IO, TIME ON; ... Include Actual Execution Plan' and before/after table with 'Logical reads (Tickets) | 131,904 | ?'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Claims checked: RESUMABLE=ON for CREATE INDEX is a 2019 feature (correct); PSP 2022 (correct); forward scan of DESC keys (correct)."
+}

@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies that python datetime values are bound as TIMESTAMP and compared to a DATE column, so Oracle applies INTERNAL_FUNCTION to the column and cannot use IDX_ORDERS_DATE",
+      "passed": true,
+      "evidence": "'The driver sends your Python datetime values as TIMESTAMP, and the column is DATE. Oracle then has to convert the column (INTERNAL_FUNCTION(\"ORDER_DATE\")) ... an index on order_date can't seek on a converted column.'"
+    },
+    {
+      "text": "The response fixes it by binding as DATE (e.g. cursor.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...)) or by CAST(:start_ts AS DATE) / TO_DATE on the parameter side",
+      "passed": true,
+      "evidence": "Option A cur.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, end_ts=oracledb.DB_TYPE_DATE); Option B CAST(:start_ts AS DATE)."
+    },
+    {
+      "text": "The response says rebuilding the index will not help",
+      "passed": true,
+      "evidence": "'Not a broken or bloated index... A rebuild only costs you an outage window.'"
+    },
+    {
+      "text": "The response says a hint is not the right fix (or not needed once the bind type is fixed)",
+      "passed": true,
+      "evidence": "'Not something a hint can fix. /*+ INDEX(...) */ can't turn INTERNAL_FUNCTION(col) >= :b into a range seek.'"
+    },
+    {
+      "text": "The response explains why the SQL Developer test with literal dates uses the index (the literals are DATE, so no conversion)",
+      "passed": true,
+      "evidence": "'Literals in SQL Developer use the index because DATE '2026-11-23' or TO_DATE(...) is a DATE. The types match, nothing is converted'."
+    },
+    {
+      "text": "The response gives verification with DBMS_XPLAN.DISPLAY_CURSOR and says what to expect: INDEX RANGE SCAN with access(...) predicates and peeked binds of type DATE",
+      "passed": true,
+      "evidence": "DISPLAY_CURSOR(..., 'ALLSTATS LAST +PEEKED_BINDS'); expects 'Peeked Binds show (DATE)', 'INDEX RANGE SCAN | IDX_ORDERS_DATE with access(\"ORDER_DATE\">=:START_TS ...) and no INTERNAL_FUNCTION'."
+    },
+    {
+      "text": "The response does not recommend creating a new index as the primary fix",
+      "passed": true,
+      "evidence": "Covering index is 'Optional ... only if this query is hot' and 'Don't do this until fix 1 is in'; primary fix is bind type."
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": true,
+      "evidence": "Issues table Severity column: 'High' for bind mismatch, 'Low (optional)' for non-covering."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Correctly notes ALLSTATS LAST needs GATHER_PLAN_STATISTICS/STATISTICS_LEVEL=ALL and that the DATE bind creates a new child cursor."
+}

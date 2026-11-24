@@ -1,0 +1,14 @@
+{
+  "eval_name": "hard-oracle-timestamp-bind",
+  "prompt": "Oracle 19c. This query from our Python service (python-oracledb) does a full table scan even though order_date is indexed. orders has 50M rows, order_date is DATE, index IDX_ORDERS_DATE (order_date). Stats were gathered last night.\n\ncur.execute(\"\"\"\n    SELECT id, customer_id, total\n    FROM orders\n    WHERE order_date >= :start_ts AND order_date < :end_ts\n\"\"\", start_ts=datetime(2026, 11, 23), end_ts=datetime(2026, 11, 24))\n\nDBMS_XPLAN.DISPLAY_CURSOR(sql_id, NULL, 'ALLSTATS LAST +PEEKED_BINDS') shows:\n| Id | Operation         | Name   | Starts | E-Rows | A-Rows | Buffers |\n|  0 | SELECT STATEMENT  |        |      1 |        |  61234 |   1.9M  |\n|* 1 |  TABLE ACCESS FULL| ORDERS |      1 |   125K |  61234 |   1.9M  |\nPeeked Binds: 1 - :START_TS (TIMESTAMP): 23-NOV-26 12.00.00.000000 AM ; 2 - :END_TS (TIMESTAMP): 24-NOV-26 12.00.00.000000 AM\nPredicate Information:\n   1 - filter((INTERNAL_FUNCTION(\"ORDER_DATE\")>=:START_TS AND INTERNAL_FUNCTION(\"ORDER_DATE\")<:END_TS))\n\nThe same query in SQL Developer with literal dates uses IDX_ORDERS_DATE. Should we rebuild the index or add a hint?",
+  "assertions": [
+    "The response identifies that python datetime values are bound as TIMESTAMP and compared to a DATE column, so Oracle applies INTERNAL_FUNCTION to the column and cannot use IDX_ORDERS_DATE",
+    "The response fixes it by binding as DATE (e.g. cursor.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...)) or by CAST(:start_ts AS DATE) / TO_DATE on the parameter side",
+    "The response says rebuilding the index will not help",
+    "The response says a hint is not the right fix (or not needed once the bind type is fixed)",
+    "The response explains why the SQL Developer test with literal dates uses the index (the literals are DATE, so no conversion)",
+    "The response gives verification with DBMS_XPLAN.DISPLAY_CURSOR and says what to expect: INDEX RANGE SCAN with access(...) predicates and peeked binds of type DATE",
+    "The response does not recommend creating a new index as the primary fix",
+    "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count"
+  ]
+}

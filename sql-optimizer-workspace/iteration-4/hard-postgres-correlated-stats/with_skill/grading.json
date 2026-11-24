@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies the estimate of 112 rows vs 479,812 actual on customers as the root cause of the slow nested loop",
+      "passed": true,
+      "evidence": "'Bitmap Heap Scan on customers ... 112 | 479,812 | ~4,300x' and 'The cheap estimate leads to a nested loop... it made 479,812 probes.'"
+    },
+    {
+      "text": "The response explains that the planner multiplies the selectivities of city and country as if independent, although Hanoi implies VN",
+      "passed": true,
+      "evidence": "'Without multi-column statistics, PostgreSQL assumes the columns are independent and multiplies their selectivities... Hanoi implies VN'."
+    },
+    {
+      "text": "The response recommends CREATE STATISTICS (dependencies and/or mcv) ON city, country FROM customers followed by ANALYZE",
+      "passed": true,
+      "evidence": "'CREATE STATISTICS customers_city_country_stx (dependencies, mcv) ON city, country FROM customers; ANALYZE customers;'"
+    },
+    {
+      "text": "The response says a composite index is not the main fix (at most secondary), since the misestimate is the problem",
+      "passed": true,
+      "evidence": "'no, don't add a composite index. Fix the statistics.' and 'Why not a composite index... It does not fix the estimate.'"
+    },
+    {
+      "text": "The response explains that with a correct estimate the planner would choose a different join strategy for orders (e.g. hash join / scan of orders) instead of 480k index lookups",
+      "passed": true,
+      "evidence": "'The planner then goes back to a Hash Join (customers hashed, orders scanned once, likely with Parallel Seq Scan)'."
+    },
+    {
+      "text": "The response notes that autoanalyze already ran, so a plain ANALYZE / stale statistics is not the explanation",
+      "passed": true,
+      "evidence": "'Re-running ANALYZE cannot fix this. Autoanalyze only refreshes per-column statistics, and those are already correct.'"
+    },
+    {
+      "text": "The response gives a verification step: re-run EXPLAIN (ANALYZE, BUFFERS) and check that the customers estimate is close to ~480k",
+      "passed": true,
+      "evidence": "Step 2 EXPLAIN (ANALYZE, BUFFERS, SETTINGS); 'the customers node estimates about 480k (within 2x of actual)'."
+    },
+    {
+      "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+      "passed": true,
+      "evidence": "Issues table Severity column: High, Medium, Low (optional)."
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "Noticed the prompt inconsistency: 'Pure independence gives 9M x (480,100/9M) x (2,100,500/9M) ~ 112,000, not 112' and offered explanations plus diagnostic step 0. No technical errors."
+}

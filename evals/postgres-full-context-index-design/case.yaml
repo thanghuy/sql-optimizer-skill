@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: postgres-full-context-index-design
+expected_outcome: |
+  ESR index (tenant_id, updated_at DESC) with price after, quantified ESR vs E-R-S, CONCURRENTLY, write/HOT cost, generic plan check valid on PG 16, EXPLAIN (ANALYZE, BUFFERS).

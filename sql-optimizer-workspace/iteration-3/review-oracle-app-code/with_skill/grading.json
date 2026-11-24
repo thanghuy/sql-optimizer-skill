@@ -1,0 +1,56 @@
+{
+  "expectations": [
+    {
+      "text": "The response identifies the per-order query inside the loop as an N+1 pattern (about 5,000 extra round trips) and replaces it with a single join or a batched IN / array query",
+      "passed": true,
+      "evidence": "Table #1: 'About 5,000 round trips' -> 'Fetch all items for the night's orders in one set-based query'; ITEMS_SQL uses `IN (SELECT o.id ...)`"
+    },
+    {
+      "text": "The response flags string-concatenated literals as preventing cursor sharing (hard parses) and recommends bind variables",
+      "passed": true,
+      "evidence": "Table #2: 'A new SQL text for every value means a hard parse each time, shared pool churn' -> 'Use :name binds everywhere'"
+    },
+    {
+      "text": "The response mentions SQL injection risk from concatenating values into SQL",
+      "passed": true,
+      "evidence": "Table #2: 'SQL injection risk too, especially for ref'"
+    },
+    {
+      "text": "The response flags TO_CHAR(order_date, 'YYYY-MM-DD') = '...' as preventing use of the order_date index and rewrites it as a date range (order_date >= :d AND order_date < :d + 1)",
+      "passed": true,
+      "evidence": "Table #3: 'The index on order_date stores order_date, not TO_CHAR(order_date)' -> `order_date >= TO_DATE(:d,'YYYY-MM-DD') AND order_date < TO_DATE(:d,'YYYY-MM-DD') + 1`"
+    },
+    {
+      "text": "The response flags ext_ref = <number> on a VARCHAR2 column as an implicit TO_NUMBER(ext_ref) that prevents index use (and can raise ORA-01722), and fixes it by binding the value as a string",
+      "passed": true,
+      "evidence": "Table #4: 'Oracle converts the column ... TO_NUMBER(ext_ref) = 123. That disables the ext_ref index ... ORA-01722' -> 'Bind it as a string: ext_ref = :ref with str(ref)'"
+    },
+    {
+      "text": "The response flags SELECT * and recommends listing only needed columns",
+      "passed": true,
+      "evidence": "Table #6: 'SELECT *' -> 'List only the columns write_rows needs'"
+    },
+    {
+      "text": "The response mentions fetch tuning or streaming (cursor.arraysize / prefetchrows, or iterating instead of fetchall on large results)",
+      "passed": true,
+      "evidence": "Table #7: 'Set cur.arraysize = 1000 ... iterate over the cursor instead of fetchall()'"
+    },
+    {
+      "text": "The response gives rewritten Python code using bind variables and a single query for orders with their items",
+      "passed": true,
+      "evidence": "Rewritten Python uses binds (d=d, ref=str(ref)) and one ITEMS_SQL for all orders' items (plus one orders query; 2 statements total). Passed reading 'single query' as 'not per-order'."
+    },
+    {
+      "text": "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix",
+      "passed": true,
+      "evidence": "'Issues found' table with Severity and Fix columns"
+    }
+  ],
+  "summary": {
+    "passed": 9,
+    "failed": 0,
+    "total": 9,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none. Also caught the unused ext_ref result / cursor reuse (real bug, not covered by assertions). TIMESTAMP-bind INTERNAL_FUNCTION caveat is correct."
+}

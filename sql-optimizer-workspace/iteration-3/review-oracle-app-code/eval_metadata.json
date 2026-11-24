@@ -1,0 +1,15 @@
+{
+  "eval_name": "review-oracle-app-code",
+  "prompt": "Oracle 19c. Our nightly export job takes 2 hours. Here's the relevant Python (python-oracledb). orders has 8M rows (about 5,000 with status NEW each night), order_items 40M rows, ext_ref is VARCHAR2(30) and indexed, order_date is DATE and indexed, order_items.order_id is indexed.\n\ndef export(conn, ref=None):\n    cur = conn.cursor()\n    cur.execute(\"SELECT * FROM orders WHERE status = 'NEW' AND TO_CHAR(order_date, 'YYYY-MM-DD') = '\" + yesterday_str() + \"'\")\n    for o in cur.fetchall():\n        c2 = conn.cursor()\n        c2.execute(\"SELECT * FROM order_items WHERE order_id = \" + str(o[0]))\n        write_rows(o, c2.fetchall())\n    if ref:\n        cur.execute(\"SELECT id FROM orders WHERE ext_ref = \" + str(ref))   # ref is an int from the partner API\n\nWhat's slowing this down and how should I rewrite it?",
+  "assertions": [
+    "The response identifies the per-order query inside the loop as an N+1 pattern (about 5,000 extra round trips) and replaces it with a single join or a batched IN / array query",
+    "The response flags string-concatenated literals as preventing cursor sharing (hard parses) and recommends bind variables",
+    "The response mentions SQL injection risk from concatenating values into SQL",
+    "The response flags TO_CHAR(order_date, 'YYYY-MM-DD') = '...' as preventing use of the order_date index and rewrites it as a date range (order_date >= :d AND order_date < :d + 1)",
+    "The response flags ext_ref = <number> on a VARCHAR2 column as an implicit TO_NUMBER(ext_ref) that prevents index use (and can raise ORA-01722), and fixes it by binding the value as a string",
+    "The response flags SELECT * and recommends listing only needed columns",
+    "The response mentions fetch tuning or streaming (cursor.arraysize / prefetchrows, or iterating instead of fetchall on large results)",
+    "The response gives rewritten Python code using bind variables and a single query for orders with their items",
+    "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix"
+  ]
+}

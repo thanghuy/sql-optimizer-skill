@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: mariadb-version-unknown
+expected_outcome: |
+  Asks the exact MariaDB version first; index (status, due_date, amount DESC) needs descending index parts (10.8+); gives a fallback for older versions; uses MariaDB-correct syntax and plan commands.

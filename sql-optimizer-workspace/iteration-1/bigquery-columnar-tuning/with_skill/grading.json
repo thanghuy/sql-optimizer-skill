@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The response explains that BigQuery has no traditional B-tree indexes and that partitioning/clustering is the fix",
+      "passed": true,
+      "evidence": "'BigQuery doesn't have B-tree indexes, so there's no index to add... partition by `DATE(event_ts)` and cluster by `project_id`'"
+    },
+    {
+      "text": "The response recommends partitioning by DATE(event_ts) (or by event_ts with daily granularity)",
+      "passed": true,
+      "evidence": "`PARTITION BY DATE(event_ts)`"
+    },
+    {
+      "text": "The response recommends clustering with project_id as the first clustering column",
+      "passed": true,
+      "evidence": "`CLUSTER BY project_id, event_name`; 'project_id | Equality | Cluster column #1'"
+    },
+    {
+      "text": "The response recommends require_partition_filter = TRUE (or otherwise enforcing a partition filter)",
+      "passed": true,
+      "evidence": "`require_partition_filter = TRUE -- block accidental full scans`"
+    },
+    {
+      "text": "The response gives a concrete migration path (CREATE TABLE ... PARTITION BY ... CLUSTER BY ... AS SELECT, or equivalent), noting the existing table cannot simply be altered in place",
+      "passed": true,
+      "evidence": "'You can't add partitioning to an existing table in place' + CTAS `CREATE TABLE analytics.events_v2 PARTITION BY ... CLUSTER BY ... AS SELECT` + rename cutover steps"
+    },
+    {
+      "text": "The response explains how to verify using bytes processed (dry run, job info or INFORMATION_SCHEMA.JOBS) before vs after",
+      "passed": true,
+      "evidence": "Verify: `bq query --dry_run` before and after, then 'check `total_bytes_processed` and `total_bytes_billed` in `INFORMATION_SCHEMA.JOBS`'"
+    },
+    {
+      "text": "The response suggests a materialized view, pre-aggregated table, or BI Engine / approximate counting for the 15-minute Looker refresh",
+      "passed": true,
+      "evidence": "Incremental materialized view with `HLL_COUNT.INIT`; also Looker datagroup caching and 'BI Engine is an option'"
+    },
+    {
+      "text": "The response estimates the expected reduction in bytes scanned (e.g. roughly 8 days of ~300 projects' data instead of all history)",
+      "passed": true,
+      "evidence": "'Partition pruning alone: 8 of ~730 days ≈ 1.1% of 2.3 TB ≈ ~25 GB... 1/300 of that would be under 1 GB'"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none"
+}

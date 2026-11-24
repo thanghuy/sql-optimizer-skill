@@ -1,0 +1,15 @@
+{
+  "eval_name": "review-sqlserver-seeded-defects",
+  "prompt": "SQL Server 2019 (compat 150). Our \"active buyers\" search is slow and CPU spikes when support uses it. Users ~2M rows, Orders ~40M rows. What should we fix?\n\nUsers(UserId int PK clustered, UserCode varchar(20) NOT NULL, UserName nvarchar(100), Email nvarchar(200), IsDeleted bit NULL)\n  -- indexes: IX_Users_UserCode (UserCode), IX_Users_UserName (UserName)\nOrders(OrderId bigint PK clustered, UserCode nvarchar(20) NOT NULL, UserId int NOT NULL, OrderDate datetime2 NOT NULL, Amount money)\n  -- indexes: IX_Orders_UserCode (UserCode), IX_Orders_OrderDate (OrderDate)\n\nMain query (called from C# with @search as nvarchar):\nSELECT DISTINCT u.UserId, u.UserName, u.Email\nFROM dbo.Users u\nJOIN dbo.Orders o ON o.UserCode = u.UserCode\nWHERE ISNULL(u.IsDeleted, 0) = 0\n  AND YEAR(o.OrderDate) = 2025\n  AND u.UserName LIKE @search + '%';\n\nAnd before opening a user's detail page the app runs:\nIF (SELECT COUNT(*) FROM dbo.Orders WHERE UserId = @id) > 0\n    SELECT ... -- load page",
+  "assertions": [
+    "The response flags SELECT DISTINCT over the Users-Orders join as hiding row multiplication (one row per order) and rewrites it with EXISTS / semi-join",
+    "The response flags the join Orders.UserCode (nvarchar) = Users.UserCode (varchar) as an implicit conversion (CONVERT_IMPLICIT) that hurts index use, and proposes a fix (align types, or join on UserId)",
+    "The response flags ISNULL(u.IsDeleted, 0) = 0 as non-SARGable and rewrites it (IsDeleted = 0 OR IsDeleted IS NULL, or make the column NOT NULL)",
+    "The response flags YEAR(o.OrderDate) = 2025 as non-SARGable and rewrites it as OrderDate >= '2025-01-01' AND OrderDate < '2026-01-01'",
+    "The response flags IF (SELECT COUNT(*) ...) > 0 and replaces it with IF EXISTS (SELECT 1 ...)",
+    "The response does not claim that u.UserName LIKE @search + '%' is a leading-wildcard / non-SARGable predicate (prefix LIKE with a parameter can seek); passes if it calls it fine or only notes a caveat about the parameter content",
+    "The response recommends an index that supports the rewritten semi-join on Orders (e.g. on (UserId, OrderDate) or (UserCode, OrderDate))",
+    "The response gives a full rewritten main query",
+    "The response presents the findings as a list or table where each issue has its own severity or priority and its own fix"
+  ]
+}

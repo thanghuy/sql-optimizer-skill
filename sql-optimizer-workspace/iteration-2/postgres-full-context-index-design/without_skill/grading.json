@@ -1,0 +1,51 @@
+{
+  "expectations": [
+    {
+      "text": "The recommended index has tenant_id first and updated_at (DESC) immediately after the equality columns, with price after it or in INCLUDE (ESR order)",
+      "passed": true,
+      "evidence": "Index (tenant_id, updated_at DESC, price) WHERE is_active: tenant_id first, updated_at DESC next, price key after"
+    },
+    {
+      "text": "The response handles is_active, either as a partial index WHERE is_active or as an equality key column, and explains the choice",
+      "passed": true,
+      "evidence": "Partial 'WHERE is_active' with explanation: 'Leaves out the ~15% of rows that are inactive ... planner can prove the partial index applies even in a generic plan'"
+    },
+    {
+      "text": "The response quantifies ESR vs E-R-S for the biggest tenant (approximate index entries read in each case, using the given 6M / 85% / 30% figures)",
+      "passed": true,
+      "evidence": "'the scan walks about 24 / 0.3 ≈ 80 index entries' vs '(tenant_id, price, updated_at) ... read every matching row (~1.5M for the big tenant) and sort them'"
+    },
+    {
+      "text": "The response uses CREATE INDEX CONCURRENTLY and mentions checking for an INVALID index if the build fails",
+      "passed": true,
+      "evidence": "CREATE INDEX CONCURRENTLY plus 'A failed CONCURRENTLY build leaves behind an INVALID index' with indisvalid check"
+    },
+    {
+      "text": "The response discusses write cost or HOT-update impact given ~150 updates/sec on price and updated_at",
+      "passed": true,
+      "evidence": "'Write-side impact (150 updates/s, 20 inserts/s)' HOT section: 'essentially every update becomes a non-HOT update'"
+    },
+    {
+      "text": "The response addresses the existing idx_products_tenant / idx_products_price (redundant or to be dropped after verification)",
+      "passed": true,
+      "evidence": "Cleanup section: drop idx_products_price after checks; 'idx_products_tenant. Don't drop it blindly' (partial index)"
+    },
+    {
+      "text": "The response gives an EXPLAIN (ANALYZE, BUFFERS) command and describes what a good plan looks like (no Sort node, index scan feeding Limit)",
+      "passed": true,
+      "evidence": "'EXPLAIN (ANALYZE, BUFFERS, SETTINGS)' with good plan 'There is no Sort node', Limit -> Index Scan"
+    },
+    {
+      "text": "The response gives a PG16-valid way to check the generic plan of the prepared statement (EXPLAIN (GENERIC_PLAN), plan_cache_mode, or PREPARE/EXECUTE)",
+      "passed": true,
+      "evidence": "'EXPLAIN (GENERIC_PLAN)' ('PG 16 can show the generic plan directly') plus PREPARE + force_generic_plan"
+    }
+  ],
+  "summary": {
+    "passed": 8,
+    "failed": 0,
+    "total": 8,
+    "pass_rate": 1.0
+  },
+  "overall_notes": "none"
+}

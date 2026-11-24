@@ -1,0 +1,663 @@
+{
+  "metadata": {
+    "skill_name": "sql-optimizer",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-11-24T05:55:15Z",
+    "evals_run": [
+      "hard-mysql-collation-join",
+      "hard-oracle-timestamp-bind",
+      "hard-postgres-correlated-stats",
+      "hard-postgres-drop-unused-indexes",
+      "hard-sqlserver-sniffing-ssms"
+    ],
+    "runs_per_configuration": 1
+  },
+  "runs": [
+    {
+      "eval_id": "hard-mysql-collation-join",
+      "eval_name": "hard-mysql-collation-join",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 120.8,
+        "tokens": 94956,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies the charset/collation mismatch (users.email utf8mb3_general_ci vs leads.email utf8mb4_0900_ai_ci) as the reason uq_users_email cannot be used for the join",
+          "passed": true,
+          "evidence": "'users.email is utf8mb3 / utf8mb3_general_ci. leads.email is utf8mb4 / utf8mb4_0900_ai_ci... The B-tree uq_users_email is sorted by utf8mb3_general_ci... So the optimizer can't look up a lead's email in it.'"
+        },
+        {
+          "text": "The response's main fix is converting users.email to the same charset and collation as leads.email (ALTER TABLE ... MODIFY / CONVERT TO), and it says another index on users.email would not help",
+          "passed": true,
+          "evidence": "'Fix the column definition (the real fix)': ALTER TABLE users MODIFY email ... utf8mb4 COLLATE utf8mb4_0900_ai_ci; 'A second index on users.email would be ignored for the same reason'."
+        },
+        {
+          "text": "The response gives at least one caveat for the conversion on 6M rows (online DDL / gh-ost / pt-osc, unique index rebuild, possible new duplicates under the new collation, or index key length)",
+          "passed": true,
+          "evidence": "ALGORITHM=COPY/blocks writes, 'Use gh-ost or pt-online-schema-change', duplicate check under new collation, index size limit (1020 bytes vs 767 on COMPACT)."
+        },
+        {
+          "text": "The response does not flag l.created_at > NOW() - INTERVAL 7 DAY as a performance problem",
+          "passed": true,
+          "evidence": "'The leads side is fine: created_at > NOW() - INTERVAL 7 DAY keeps the arithmetic on the parameter side, so it's a proper range'."
+        },
+        {
+          "text": "The response says rewriting as a subquery would not fix the problem (or does not recommend it as the fix)",
+          "passed": true,
+          "evidence": "'A subquery (IN (SELECT ...) / EXISTS) runs the same comparison with the same conversion, so the plan stays the same.'"
+        },
+        {
+          "text": "The response offers a short-term workaround that converts the leads side so the users index can be used (e.g. CONVERT(l.email USING utf8mb3) or an explicit COLLATE) and notes its caveat (lossy for 4-byte characters / collation semantics)",
+          "passed": true,
+          "evidence": "Stopgap: 'ON u.email = CONVERT(l.email USING utf8mb3) COLLATE utf8mb3_general_ci' with caveats: 4-byte chars become '?', matching follows utf8mb3_general_ci rules, utf8mb3 deprecated."
+        },
+        {
+          "text": "The response says what the fixed EXPLAIN should show for u (type eq_ref or ref, key uq_users_email)",
+          "passed": true,
+          "evidence": "'Expected effect: u goes from ALL (6M rows) to eq_ref on uq_users_email'."
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": true,
+          "evidence": "Issues table Severity column: High, Low (correctness), Low / Medium."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-oracle-timestamp-bind",
+      "eval_name": "hard-oracle-timestamp-bind",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 109.5,
+        "tokens": 89506,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that python datetime values are bound as TIMESTAMP and compared to a DATE column, so Oracle applies INTERNAL_FUNCTION to the column and cannot use IDX_ORDERS_DATE",
+          "passed": true,
+          "evidence": "'The driver sends your Python datetime values as TIMESTAMP, and the column is DATE. Oracle then has to convert the column (INTERNAL_FUNCTION(\"ORDER_DATE\")) ... an index on order_date can't seek on a converted column.'"
+        },
+        {
+          "text": "The response fixes it by binding as DATE (e.g. cursor.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...)) or by CAST(:start_ts AS DATE) / TO_DATE on the parameter side",
+          "passed": true,
+          "evidence": "Option A cur.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, end_ts=oracledb.DB_TYPE_DATE); Option B CAST(:start_ts AS DATE)."
+        },
+        {
+          "text": "The response says rebuilding the index will not help",
+          "passed": true,
+          "evidence": "'Not a broken or bloated index... A rebuild only costs you an outage window.'"
+        },
+        {
+          "text": "The response says a hint is not the right fix (or not needed once the bind type is fixed)",
+          "passed": true,
+          "evidence": "'Not something a hint can fix. /*+ INDEX(...) */ can't turn INTERNAL_FUNCTION(col) >= :b into a range seek.'"
+        },
+        {
+          "text": "The response explains why the SQL Developer test with literal dates uses the index (the literals are DATE, so no conversion)",
+          "passed": true,
+          "evidence": "'Literals in SQL Developer use the index because DATE '2026-11-23' or TO_DATE(...) is a DATE. The types match, nothing is converted'."
+        },
+        {
+          "text": "The response gives verification with DBMS_XPLAN.DISPLAY_CURSOR and says what to expect: INDEX RANGE SCAN with access(...) predicates and peeked binds of type DATE",
+          "passed": true,
+          "evidence": "DISPLAY_CURSOR(..., 'ALLSTATS LAST +PEEKED_BINDS'); expects 'Peeked Binds show (DATE)', 'INDEX RANGE SCAN | IDX_ORDERS_DATE with access(\"ORDER_DATE\">=:START_TS ...) and no INTERNAL_FUNCTION'."
+        },
+        {
+          "text": "The response does not recommend creating a new index as the primary fix",
+          "passed": true,
+          "evidence": "Covering index is 'Optional ... only if this query is hot' and 'Don't do this until fix 1 is in'; primary fix is bind type."
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": true,
+          "evidence": "Issues table Severity column: 'High' for bind mismatch, 'Low (optional)' for non-covering."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-postgres-correlated-stats",
+      "eval_name": "hard-postgres-correlated-stats",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 109.8,
+        "tokens": 84926,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies the estimate of 112 rows vs 479,812 actual on customers as the root cause of the slow nested loop",
+          "passed": true,
+          "evidence": "'Bitmap Heap Scan on customers ... 112 | 479,812 | ~4,300x' and 'The cheap estimate leads to a nested loop... it made 479,812 probes.'"
+        },
+        {
+          "text": "The response explains that the planner multiplies the selectivities of city and country as if independent, although Hanoi implies VN",
+          "passed": true,
+          "evidence": "'Without multi-column statistics, PostgreSQL assumes the columns are independent and multiplies their selectivities... Hanoi implies VN'."
+        },
+        {
+          "text": "The response recommends CREATE STATISTICS (dependencies and/or mcv) ON city, country FROM customers followed by ANALYZE",
+          "passed": true,
+          "evidence": "'CREATE STATISTICS customers_city_country_stx (dependencies, mcv) ON city, country FROM customers; ANALYZE customers;'"
+        },
+        {
+          "text": "The response says a composite index is not the main fix (at most secondary), since the misestimate is the problem",
+          "passed": true,
+          "evidence": "'no, don't add a composite index. Fix the statistics.' and 'Why not a composite index... It does not fix the estimate.'"
+        },
+        {
+          "text": "The response explains that with a correct estimate the planner would choose a different join strategy for orders (e.g. hash join / scan of orders) instead of 480k index lookups",
+          "passed": true,
+          "evidence": "'The planner then goes back to a Hash Join (customers hashed, orders scanned once, likely with Parallel Seq Scan)'."
+        },
+        {
+          "text": "The response notes that autoanalyze already ran, so a plain ANALYZE / stale statistics is not the explanation",
+          "passed": true,
+          "evidence": "'Re-running ANALYZE cannot fix this. Autoanalyze only refreshes per-column statistics, and those are already correct.'"
+        },
+        {
+          "text": "The response gives a verification step: re-run EXPLAIN (ANALYZE, BUFFERS) and check that the customers estimate is close to ~480k",
+          "passed": true,
+          "evidence": "Step 2 EXPLAIN (ANALYZE, BUFFERS, SETTINGS); 'the customers node estimates about 480k (within 2x of actual)'."
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": true,
+          "evidence": "Issues table Severity column: High, Medium, Low (optional)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-postgres-drop-unused-indexes",
+      "eval_name": "hard-postgres-drop-unused-indexes",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 89.0,
+        "tokens": 80712,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response says idx_order_items_order_id is redundant with idx_order_items_order_product (leftmost prefix) and can be dropped",
+          "passed": true,
+          "evidence": "'idx_order_items_order_id ... Drop (after checks) | Redundant. (order_id) is the leftmost prefix of idx_order_items_order_product (order_id, product_id).'"
+        },
+        {
+          "text": "The response says to keep idx_payments_order_id because it backs the foreign key with ON DELETE CASCADE used by the nightly purge, even though idx_scan is 0",
+          "passed": true,
+          "evidence": "'idx_payments_order_id ... Keep | It is the only index on the FK column payments.order_id, which has ON DELETE CASCADE and a nightly purge... each of those becomes a sequential scan of payments.'"
+        },
+        {
+          "text": "The response says not to drop users_email_key because it enforces the UNIQUE constraint",
+          "passed": true,
+          "evidence": "'users_email_key ... Keep (it can't be dropped anyway) | It enforces UNIQUE (users.email).'"
+        },
+        {
+          "text": "The response points out that stats were reset 3 days ago, so idx_scan values do not cover a full workload cycle",
+          "passed": true,
+          "evidence": "'The window is 3 days... Three days misses every weekly, month-end and quarterly job.'"
+        },
+        {
+          "text": "The response points out that the read replica's index usage is not visible in the primary's pg_stat_user_indexes, so idx_orders_created_at may be used by the dashboards",
+          "passed": true,
+          "evidence": "'You only looked at the primary... a hot standby's index scans never appear in the primary's pg_stat_user_indexes'; idx_orders_created_at kept since replica dashboards likely use it."
+        },
+        {
+          "text": "The response uses DROP INDEX CONCURRENTLY for any index it says to drop",
+          "passed": true,
+          "evidence": "'DROP INDEX CONCURRENTLY IF EXISTS public.idx_order_items_order_id;'"
+        },
+        {
+          "text": "The response saves the index definitions (pg_get_indexdef) or gives CREATE INDEX CONCURRENTLY statements for rollback",
+          "passed": true,
+          "evidence": "Check (b) saves pg_get_indexdef 'for rollback'; rollback 'CREATE INDEX CONCURRENTLY idx_order_items_order_id ON public.order_items (order_id);'"
+        },
+        {
+          "text": "The response does not give a DROP statement for idx_payments_order_id or users_email_key as an action to run",
+          "passed": true,
+          "evidence": "Those DROPs appear only commented out under 'Statements I would not run' with '-- DO NOT RUN'."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-sqlserver-sniffing-ssms",
+      "eval_name": "hard-sqlserver-sniffing-ssms",
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 136.0,
+        "tokens": 116258,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies parameter sniffing: the cached plan was compiled for 'Closed' (ParameterCompiledValue) and reused for 'Open'",
+          "passed": true,
+          "evidence": "Diagnosis 1: 'The cached plan was compiled for 'Closed' and is reused for 'Open'' citing ParameterCompiledValue/RuntimeValue."
+        },
+        {
+          "text": "The response explains concretely why SSMS is fast: different SET options (ARITHABORT) give a separate plan cache entry, and/or the DECLARE local-variable test uses density estimates instead of sniffing",
+          "passed": true,
+          "evidence": "'SSMS connects with SET ARITHABORT ON. .NET SqlClient leaves it OFF. ARITHABORT is a plan-cache key, so your SSMS session gets its own cache entry'; also correctly notes the DECLARE->EXEC test still sniffs."
+        },
+        {
+          "text": "The response states that no new index is needed because IX_Tickets_Status_CreatedAt already fits the query",
+          "passed": true,
+          "evidence": "'Short answer: no, you don't need another index... A second index won't help.' Index matches by ESR; only conditional INCLUDE(TicketId) extension of the existing index if TicketId is not the clustered key."
+        },
+        {
+          "text": "The response recommends at least one fix valid on SQL Server 2019 Standard: OPTION (RECOMPILE), OPTIMIZE FOR, a separate procedure/code path for the 'Closed' export, or Query Store plan forcing",
+          "passed": true,
+          "evidence": "Separate dbo.ExportTicketsByStatus with OPTION (RECOMPILE); Query Store force plan; sp_recompile stopgap."
+        },
+        {
+          "text": "The response does not present Parameter Sensitive Plan optimization as available on SQL Server 2019 / compat 150 (passes if not mentioned or flagged as 2022 / compat 160 only)",
+          "passed": true,
+          "evidence": "'Parameter Sensitive Plan optimization needs SQL Server 2022 / compat 160.'"
+        },
+        {
+          "text": "The response explains how to reproduce the app's plan correctly (sp_executesql with a real parameter, matching the app's SET options, or pulling the plan from the cache / Query Store) and does not present toggling ARITHABORT as the fix",
+          "passed": true,
+          "evidence": "Verify section: plan cache query on sys.dm_exec_procedure_stats + set_options, 'SET ARITHABORT OFF; -- match .NET SqlClient' to reuse the app's plan; 'Don't fix this by changing ARITHABORT in the app.'"
+        },
+        {
+          "text": "The response says the nightly 'Closed' export (11.4M rows) should get its own handling (separate proc, RECOMPILE, or different query) so it cannot poison the API plan",
+          "passed": true,
+          "evidence": "'Nightly export: own procedure, so it never compiles the plan the API reuses' with OPTION (RECOMPILE)."
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": true,
+          "evidence": "Issues table has Severity column: High, High (if confirmed), Medium, Low, Low (question)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-mysql-collation-join",
+      "eval_name": "hard-mysql-collation-join",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 60.7,
+        "tokens": 67142,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies the charset/collation mismatch (users.email utf8mb3_general_ci vs leads.email utf8mb4_0900_ai_ci) as the reason uq_users_email cannot be used for the join",
+          "passed": true,
+          "evidence": "Table of charset/collation; 'it converts the utf8mb3 side (users) ... uq_users_email is sorted by utf8mb3_general_ci values... the index can't be used for lookups.'"
+        },
+        {
+          "text": "The response's main fix is converting users.email to the same charset and collation as leads.email (ALTER TABLE ... MODIFY / CONVERT TO), and it says another index on users.email would not help",
+          "passed": true,
+          "evidence": "'Fix 2 (the right long-term fix): give both columns the same charset and collation' ALTER TABLE users MODIFY ... utf8mb4_0900_ai_ci; 'Another index on users.email: it would have the same collation, so the same thing happens.'"
+        },
+        {
+          "text": "The response gives at least one caveat for the conversion on 6M rows (online DDL / gh-ost / pt-osc, unique index rebuild, possible new duplicates under the new collation, or index key length)",
+          "passed": true,
+          "evidence": "'ALGORITHM=COPY and blocks writes ... use gh-ost or pt-online-schema-change'; 'The unique key could break' duplicate check; index size note."
+        },
+        {
+          "text": "The response does not flag l.created_at > NOW() - INTERVAL 7 DAY as a performance problem",
+          "passed": true,
+          "evidence": "The created_at predicate is never flagged; it is used unchanged in all rewrites."
+        },
+        {
+          "text": "The response says rewriting as a subquery would not fix the problem (or does not recommend it as the fix)",
+          "passed": true,
+          "evidence": "'Subquery (WHERE l.email IN (SELECT email FROM users) or EXISTS): the comparison still mixes the two collations, so the optimizer is stuck the same way.'"
+        },
+        {
+          "text": "The response offers a short-term workaround that converts the leads side so the users index can be used (e.g. CONVERT(l.email USING utf8mb3) or an explicit COLLATE) and notes its caveat (lossy for 4-byte characters / collation semantics)",
+          "passed": true,
+          "evidence": "Fix 1: CONVERT(l.email USING utf8mb3) COLLATE utf8mb3_general_ci with caveats 'Matching rules change slightly' and '4-byte characters are lost'."
+        },
+        {
+          "text": "The response says what the fixed EXPLAIN should show for u (type eq_ref or ref, key uq_users_email)",
+          "passed": true,
+          "evidence": "'Now u should show type = eq_ref with key = uq_users_email.'"
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": false,
+          "evidence": "No explicit severity labels; only fixes ordered as Fix 1 / Fix 2 / Recommendation steps."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-oracle-timestamp-bind",
+      "eval_name": "hard-oracle-timestamp-bind",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 43.1,
+        "tokens": 65315,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies that python datetime values are bound as TIMESTAMP and compared to a DATE column, so Oracle applies INTERNAL_FUNCTION to the column and cannot use IDX_ORDERS_DATE",
+          "passed": true,
+          "evidence": "'python-oracledb sends your datetime values as TIMESTAMP binds, but orders.order_date is a DATE... It converts the column to TIMESTAMP... the B-tree on plain order_date can't be used as an access predicate.'"
+        },
+        {
+          "text": "The response fixes it by binding as DATE (e.g. cursor.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...)) or by CAST(:start_ts AS DATE) / TO_DATE on the parameter side",
+          "passed": true,
+          "evidence": "cur.setinputsizes(start_ts=oracledb.DB_TYPE_DATE, ...) and CAST(:start_ts AS DATE) alternative."
+        },
+        {
+          "text": "The response says rebuilding the index will not help",
+          "passed": true,
+          "evidence": "'Rebuilding the index: nothing is wrong with the index... A rebuild changes nothing.'"
+        },
+        {
+          "text": "The response says a hint is not the right fix (or not needed once the bind type is fixed)",
+          "passed": true,
+          "evidence": "'/*+ INDEX(orders IDX_ORDERS_DATE) */: ... The best the hint can give you is an INDEX FULL SCAN ... It also hides the real bug'."
+        },
+        {
+          "text": "The response explains why the SQL Developer test with literal dates uses the index (the literals are DATE, so no conversion)",
+          "passed": true,
+          "evidence": "'SQL Developer uses the index because DATE '2026-11-23' and TO_DATE(...) literals are of type DATE. Types match, so there's no conversion'."
+        },
+        {
+          "text": "The response gives verification with DBMS_XPLAN.DISPLAY_CURSOR and says what to expect: INDEX RANGE SCAN with access(...) predicates and peeked binds of type DATE",
+          "passed": true,
+          "evidence": "DISPLAY_CURSOR('&sql_id', NULL, 'ALLSTATS LAST +PEEKED_BINDS'); expects '(DATE)', 'INDEX RANGE SCAN IDX_ORDERS_DATE', 'access(\"ORDER_DATE\">=:START_TS AND \"ORDER_DATE\"<:END_TS)'."
+        },
+        {
+          "text": "The response does not recommend creating a new index as the primary fix",
+          "passed": true,
+          "evidence": "Explicitly rejects function-based index ('Don't'); covering index only 'if the query is still too slow after the fix'."
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": false,
+          "evidence": "No explicit severity labels; issues are given as prose/numbered explanations."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-postgres-correlated-stats",
+      "eval_name": "hard-postgres-correlated-stats",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 46.4,
+        "tokens": 65457,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies the estimate of 112 rows vs 479,812 actual on customers as the root cause of the slow nested loop",
+          "passed": true,
+          "evidence": "'112 rows estimated, 479,812 actual. That's about 4,300x too low'; 'the planner chooses a nested loop with 112 index probes... What actually runs is 479,812 probes'."
+        },
+        {
+          "text": "The response explains that the planner multiplies the selectivities of city and country as if independent, although Hanoi implies VN",
+          "passed": true,
+          "evidence": "'It then assumes the two columns are independent and multiplies their selectivities... Every Hanoi customer is in VN'."
+        },
+        {
+          "text": "The response recommends CREATE STATISTICS (dependencies and/or mcv) ON city, country FROM customers followed by ANALYZE",
+          "passed": true,
+          "evidence": "'CREATE STATISTICS customers_city_country_stx (dependencies, mcv) ON city, country FROM customers; ANALYZE customers;'"
+        },
+        {
+          "text": "The response says a composite index is not the main fix (at most secondary), since the misestimate is the problem",
+          "passed": true,
+          "evidence": "'Why a composite index isn't the answer... does not fix the row estimate.'"
+        },
+        {
+          "text": "The response explains that with a correct estimate the planner would choose a different join strategy for orders (e.g. hash join / scan of orders) instead of 480k index lookups",
+          "passed": true,
+          "evidence": "'The plan should switch to a Hash Join, probably a hash on the customer set with orders read sequentially'."
+        },
+        {
+          "text": "The response notes that autoanalyze already ran, so a plain ANALYZE / stale statistics is not the explanation",
+          "passed": true,
+          "evidence": "'The recent autoanalyze doesn't help. Plain ANALYZE only collects per-column statistics.'"
+        },
+        {
+          "text": "The response gives a verification step: re-run EXPLAIN (ANALYZE, BUFFERS) and check that the customers estimate is close to ~480k",
+          "passed": true,
+          "evidence": "'EXPLAIN (ANALYZE, BUFFERS) <your query>; The customers node should now estimate roughly 480k rows.'"
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": false,
+          "evidence": "No explicit severity labels; only a summary table with 'Fixes the 9 min?' Yes/No/Partial columns."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-postgres-drop-unused-indexes",
+      "eval_name": "hard-postgres-drop-unused-indexes",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 1.0,
+        "passed": 8,
+        "failed": 0,
+        "total": 8,
+        "time_seconds": 54.6,
+        "tokens": 66343,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response says idx_order_items_order_id is redundant with idx_order_items_order_product (leftmost prefix) and can be dropped",
+          "passed": true,
+          "evidence": "'idx_order_items_order_id ... Drop, after the checks below | It's redundant. idx_order_items_order_product (order_id, product_id) starts with order_id'."
+        },
+        {
+          "text": "The response says to keep idx_payments_order_id because it backs the foreign key with ON DELETE CASCADE used by the nightly purge, even though idx_scan is 0",
+          "passed": true,
+          "evidence": "'idx_payments_order_id (0 scans, 2.1 GB) | Keep | It supports the ON DELETE CASCADE foreign key... nightly purge'."
+        },
+        {
+          "text": "The response says not to drop users_email_key because it enforces the UNIQUE constraint",
+          "passed": true,
+          "evidence": "'users_email_key ... Keep | It enforces the UNIQUE constraint on users.email.'"
+        },
+        {
+          "text": "The response points out that stats were reset 3 days ago, so idx_scan values do not cover a full workload cycle",
+          "passed": true,
+          "evidence": "'Your stats cover only 3 days... That window misses anything that runs weekly or monthly'."
+        },
+        {
+          "text": "The response points out that the read replica's index usage is not visible in the primary's pg_stat_user_indexes, so idx_orders_created_at may be used by the dashboards",
+          "passed": true,
+          "evidence": "'The primary doesn't count replica reads... their index scans never show up in what you ran on the primary'; idx_orders_created_at kept for replica dashboards."
+        },
+        {
+          "text": "The response uses DROP INDEX CONCURRENTLY for any index it says to drop",
+          "passed": true,
+          "evidence": "'DROP INDEX CONCURRENTLY IF EXISTS public.idx_order_items_order_id;'"
+        },
+        {
+          "text": "The response saves the index definitions (pg_get_indexdef) or gives CREATE INDEX CONCURRENTLY statements for rollback",
+          "passed": true,
+          "evidence": "Query selects pg_get_indexdef(i.indexrelid); rollback 'CREATE INDEX CONCURRENTLY idx_order_items_order_id ON public.order_items (order_id);'"
+        },
+        {
+          "text": "The response does not give a DROP statement for idx_payments_order_id or users_email_key as an action to run",
+          "passed": true,
+          "evidence": "Only one DROP statement given (idx_order_items_order_id); none for payments or users_email_key."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": "hard-sqlserver-sniffing-ssms",
+      "eval_name": "hard-sqlserver-sniffing-ssms",
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.875,
+        "passed": 7,
+        "failed": 1,
+        "total": 8,
+        "time_seconds": 60.2,
+        "tokens": 67063,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "The response identifies parameter sniffing: the cached plan was compiled for 'Closed' (ParameterCompiledValue) and reused for 'Open'",
+          "passed": true,
+          "evidence": "'This is parameter sniffing. The plan the API is using was compiled for 'Closed' (ParameterCompiledValue = 'Closed'...) and it keeps getting reused for 'Open''."
+        },
+        {
+          "text": "The response explains concretely why SSMS is fast: different SET options (ARITHABORT) give a separate plan cache entry, and/or the DECLARE local-variable test uses density estimates instead of sniffing",
+          "passed": true,
+          "evidence": "'SSMS connects with SET ARITHABORT ON by default. ADO.NET / SqlClient connects with ARITHABORT OFF. SET options are part of the plan cache key'."
+        },
+        {
+          "text": "The response states that no new index is needed because IX_Tickets_Status_CreatedAt already fits the query",
+          "passed": true,
+          "evidence": "'Short answer: no, you don't need another index'; only possible change is adding TicketId to INCLUDE if it is not the clustering key."
+        },
+        {
+          "text": "The response recommends at least one fix valid on SQL Server 2019 Standard: OPTION (RECOMPILE), OPTIMIZE FOR, a separate procedure/code path for the 'Closed' export, or Query Store plan forcing",
+          "passed": true,
+          "evidence": "Options: separate proc, OPTIMIZE FOR (@Status = 'Open'), OPTION (RECOMPILE), Query Store plan forcing ('available in 2019 Standard')."
+        },
+        {
+          "text": "The response does not present Parameter Sensitive Plan optimization as available on SQL Server 2019 / compat 150 (passes if not mentioned or flagged as 2022 / compat 160 only)",
+          "passed": true,
+          "evidence": "'Parameter Sensitive Plan optimization ... needs SQL Server 2022 at compat level 160. You don't get it on 2019 / 150.'"
+        },
+        {
+          "text": "The response explains how to reproduce the app's plan correctly (sp_executesql with a real parameter, matching the app's SET options, or pulling the plan from the cache / Query Store) and does not present toggling ARITHABORT as the fix",
+          "passed": true,
+          "evidence": "'SET ARITHABORT OFF; -- match the .NET connection so you hit the API's cached plan' plus plan-cache query; 'Don't fix this by turning ARITHABORT ON in the app's connection string.'"
+        },
+        {
+          "text": "The response says the nightly 'Closed' export (11.4M rows) should get its own handling (separate proc, RECOMPILE, or different query) so it cannot poison the API plan",
+          "passed": true,
+          "evidence": "Permanent fix #1: 'Give the nightly export its own proc (recommended)... can't poison each other.'"
+        },
+        {
+          "text": "Each reported issue carries an explicit severity label (e.g. High / Medium / Low, or Critical / Major / Minor); ordering alone does not count",
+          "passed": false,
+          "evidence": "No explicit severity labels anywhere; issues are presented as prose and a ranked option list ('pick one; I'd do #1') only."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 1.0,
+        "stddev": 0.0,
+        "min": 1.0,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 113.02,
+        "stddev": 17.2361,
+        "min": 89.0,
+        "max": 136.0
+      },
+      "tokens": {
+        "mean": 93271.6,
+        "stddev": 13899.4975,
+        "min": 80712,
+        "max": 116258
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.9,
+        "stddev": 0.0559,
+        "min": 0.875,
+        "max": 1.0
+      },
+      "time_seconds": {
+        "mean": 53.0,
+        "stddev": 7.9884,
+        "min": 43.1,
+        "max": 60.7
+      },
+      "tokens": {
+        "mean": 66264.0,
+        "stddev": 861.3037,
+        "min": 65315,
+        "max": 67142
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.10",
+      "time_seconds": "+60.0",
+      "tokens": "+27008"
+    }
+  },
+  "notes": [
+    "with_skill 40/40 vs without_skill 36/40; all 4 baseline failures are the explicit-severity-label assertion (format, not diagnosis).",
+    "All 35 diagnosis assertions pass in both configs: base model already diagnoses sniffing+ARITHABORT, TIMESTAMP bind on DATE, collation mismatch, FK/UNIQUE/replica/stats-reset caveats, correlated stats.",
+    "Unscored differences favouring with_skill: caught the prompt's 112 vs ~112,000 arithmetic inconsistency (baseline repeated the wrong math); noted ALLSTATS LAST needs GATHER_PLAN_STATISTICS; inferred the SQL Server index is likely not covering; checked edition limits (Standard) via docs.",
+    "Cost: with_skill ~+55s and ~+30k tokens per run.",
+    "Conclusion across 4 rounds: skill's measurable value = process discipline (asks traffic/volume, version-tagged syntax, checklist consistency, explicit severity table, number sanity checks), not raw DB knowledge."
+  ]
+}
