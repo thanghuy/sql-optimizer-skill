@@ -25,7 +25,7 @@ For Snowflake, BigQuery and ClickHouse (no B-tree indexes), ESR is translated in
 ## Repository layout
 
 ```
-sql-optimizer/                       # the skill itself (this is what you install)
+skills/sql-optimizer/                # the skill itself (this is what you install)
 ├── SKILL.md                         # main workflow
 ├── assets/intake-template.md        # one-message questionnaire for the user
 └── references/
@@ -42,18 +42,40 @@ sql-optimizer-workspace/             # results of 4 benchmark rounds + static HT
 
 ## Installation
 
-**Claude Code** (all projects):
+### With npx (Claude Code, Cursor, Codex and other agents)
+
+Uses the open-source [`skills`](https://github.com/vercel-labs/skills) CLI (requires Node.js 22.20+):
+
+```bash
+# Install into the current project for Claude Code (.claude/skills/)
+npx skills add thanghuy/sql-optimizer-skill -a claude-code
+
+# Install globally for Claude Code (~/.claude/skills/), no prompts
+npx skills add thanghuy/sql-optimizer-skill -g -a claude-code -y
+
+# See what the repo contains without installing
+npx skills add thanghuy/sql-optimizer-skill --list
+```
+
+Leave out `-a claude-code` to choose interactively among all supported agents. Update later with `npx skills update`, remove with `npx skills remove`. The CLI sends anonymous usage telemetry; set `DISABLE_TELEMETRY=1` to turn it off.
+
+### Manually with git (Claude Code)
+
 ```bash
 git clone https://github.com/thanghuy/sql-optimizer-skill.git
-cp -r sql-optimizer-skill/sql-optimizer ~/.claude/skills/
+cp -r sql-optimizer-skill/skills/sql-optimizer ~/.claude/skills/
 ```
 For a single project, copy it into `<project>/.claude/skills/` instead.
 
-**Claude.ai / Claude Desktop**: Settings → Capabilities → Skills → Upload, then choose `sql-optimizer.skill`.
+### Claude.ai / Claude Desktop
 
-**Other agents (Cursor, Codex, Gemini CLI, Copilot, …)**: copy the `sql-optimizer` folder into your repo and add this to `AGENTS.md` or your rules file:
+Settings → Capabilities → Skills → Upload, then choose `sql-optimizer.skill` (also attached to the [latest release](https://github.com/thanghuy/sql-optimizer-skill/releases/latest)).
+
+### Other agents without npx
+
+Cursor, Codex, Gemini CLI, Copilot, …: copy `skills/sql-optimizer` into your repo and add this to `AGENTS.md` or your rules file:
 ```
-For any SQL performance, slow query, query review, index or EXPLAIN task, follow sql-optimizer/SKILL.md
+For any SQL performance, slow query, query review, index or EXPLAIN task, follow skills/sql-optimizer/SKILL.md
 and read the referenced files it points to.
 ```
 
